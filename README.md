@@ -30,14 +30,8 @@ factoryops/
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore
-├── app/
-│   ├── main.py            Streamlit UI (stub — not yet implemented)
-│   ├── local_llm.py       client for the local model (stub)
-│   └── retrieval.py       manuals/repair-history search (stub)
-├── tools/
-│   ├── search_manuals.py       (stub)
-│   ├── get_repair_history.py   (stub)
-│   └── safety_gate.py          (stub)
+├── app/                   empty skeleton (.gitkeep) — see "Building the app/tools code" below
+├── tools/                 empty skeleton (.gitkeep) — see "Building the app/tools code" below
 ├── data/
 │   └── repair_history.csv
 ├── manuals/
@@ -45,14 +39,15 @@ factoryops/
 │   └── lockout_tagout_sop.md
 ├── load/                  gitignored — paste factoryops-kit here, see Step 2
 │   └── factoryops-kit/
-│       ├── model-backup/  qwen3:4b (ollama) + llamafile secondary
+│       ├── model-backup/  separate qwen3:4b and qwen3:8b Ollama backups
 │       └── demo/demo-script.md
 └── skills/skills/         process/agent-design notes used while building this
 ```
 
-`app/*.py` and `tools/*.py` are currently empty stubs — the sections
-below describe the intended interface. Verify each command against
-what's actually implemented before relying on it in the demo.
+`app/` and `tools/` are currently empty skeleton folders (just a
+`.gitkeep` each) — no code has been written yet. See "Building the
+app/tools code" below for what needs to be created and in what shape
+before Steps 9–10 will work.
 
 Every command below is run from the repo root and resolves paths off
 `$(pwd)` — nothing to hand-edit, no mount points to hunt for.
@@ -105,7 +100,7 @@ fight over the same GPU/RAM.
 
 ```bash
 sudo systemctl stop ollama 2>/dev/null || true
-export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/models"
+export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/4b"
 ollama serve
 ```
 Leave that terminal running. In a second terminal:
@@ -116,6 +111,25 @@ curl http://127.0.0.1:11434/api/tags
 ```
 Expect exactly `FACTORYOPS LOCAL MODEL READY` back. Do not stop ollama
 after this test succeeds — leave it running for the rest of setup.
+
+To use the 8B backup instead, stop the running Ollama server, point
+`OLLAMA_MODELS` at the separate 8B directory, and start it again:
+
+```bash
+sudo systemctl stop ollama 2>/dev/null || true
+export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/8b"
+ollama serve
+```
+
+In a second terminal:
+
+```bash
+ollama run qwen3:8b
+```
+
+The current kit contains the 4B backup only; copy the 8B Ollama
+`blobs/` and `manifests/` directories into
+`load/factoryops-kit/model-backup/ollama/8b/` before using it.
 
 Fallback (llamafile, only if ollama can't run here):
 ```bash
@@ -252,6 +266,38 @@ streamlit run app/main.py --server.address 0.0.0.0 --server.port 8501
 Open `http://localhost:8501`. OpenClaw keeps running inside its
 sandbox as the agent/security layer regardless of where the UI runs.
 
+## Building the app/tools code
+
+`app/` and `tools/` ship empty (skeleton only, tracked with
+`.gitkeep`) — nothing here is implemented yet. Before Steps 9–10 work,
+create:
+
+```text
+app/
+├── main.py         Streamlit UI — entry point for `streamlit run app/main.py`
+├── local_llm.py    client for the local Ollama model (talks to http://127.0.0.1:11434)
+└── retrieval.py     search over data/repair_history.csv and manuals/*.md
+
+tools/
+├── search_manuals.py       search manuals/*.md for a fault code / keyword
+├── get_repair_history.py   query data/repair_history.csv
+└── safety_gate.py          enforce LOTO/safety checks before returning inspection steps
+```
+
+Create the empty files (drop the now-redundant `.gitkeep`s in the same
+step):
+
+```bash
+touch app/main.py app/local_llm.py app/retrieval.py
+touch tools/search_manuals.py tools/get_repair_history.py tools/safety_gate.py
+rm -f app/.gitkeep tools/.gitkeep
+```
+
+Implement these against the data already in the repo
+(`data/repair_history.csv`, `manuals/fault_code_catalog.md`,
+`manuals/lockout_tagout_sop.md`) and the local model started in Step 4
+— no cloud calls.
+
 ## 10. Editing during the event
 
 Edit on the **host**, not inside the read-only sandbox mount:
@@ -338,7 +384,7 @@ git clone https://github.com/MFarhanFadhilah/factoryops.git && cd factoryops
 
 # Start the model (NOT ollama pull)
 sudo systemctl stop ollama 2>/dev/null || true
-export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/models"
+export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/4b"
 ollama serve
 # second terminal:
 ollama run qwen3:4b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
