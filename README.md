@@ -168,22 +168,35 @@ chmod +x "$LLAMAFILE" && "$LLAMAFILE" --server --nobrowser   # OpenAI-compatible
 
 ## 4. Install NemoClaw (both modes)
 
+Set the project folder *before* installing — the installer chains straight
+into the onboarding wizard below, so this must already be exported when it
+asks for "Project host folder":
 ```bash
+PROJECT_DIR="$(pwd -P)"
 curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash
 source ~/.bashrc
 nemoclaw --version
 nemoclaw agents list      # OpenClaw should be listed
 nemoclaw host probe
 ```
-Interrupted onboarding: `nemoclaw onboard --resume`.
+Interrupted onboarding: `nemoclaw onboard --resume`. If install starts an
+onboarding wizard on its own instead of just installing, or asks for a sudo
+password unexpectedly, Ctrl+C and check `ps aux | grep nemoclaw` for a
+stray process before retrying.
+
+If prompted `Run express install with these settings? [Y/n]`, answer **n** —
+express mode's "balanced" tier enables npm/pypi/huggingface/brew access and a
+web-search preset, which conflicts with the wizard answers in Step 5 (no web
+search, local-only network). Answering `n` is expected and correct: it drops
+you straight into the manual, prompt-by-prompt wizard from Step 5 — there is
+no separate "just install, nothing else" path, so proceed directly into it.
 
 ## 5. Create the sandbox: NemoClaw + OpenShell + OpenClaw (both modes)
 
-```bash
-PROJECT_DIR="$(pwd -P)"
-nemoclaw onboard
-```
-Wizard answers (same for both modes):
+The wizard from Step 4 continues here automatically — you don't run a
+separate command unless it didn't start (then run `nemoclaw onboard`
+yourself; `$PROJECT_DIR` is already set from Step 4). Answer each prompt as
+it appears, in order, starting with agent selection (`1) OpenClaw`):
 ```text
 Agent runtime:          OpenClaw
 Sandbox name:           factoryops
@@ -213,6 +226,16 @@ awk '$2 == "/sandbox/factoryops" { print $2, $4 }' /proc/mounts   # expect "ro"
 exit
 ```
 Not visible? Confirm `PROJECT_DIR="$(pwd -P)"` is absolute, re-run `nemoclaw onboard`.
+
+If sandbox creation instead reports "reached Ready before OpenShell returned
+one exact durable create identity" or the container keeps restarting, **stop**
+— don't repeatedly retry `nemoclaw <name> destroy`. A crash-looping container
+never reaches a state NemoClaw can confirm as absent, so destroy will keep
+refusing with an "identity conflict" error and repeated attempts won't fix it.
+Instead: `docker ps -a` to confirm the container is crash-looping, check
+`docker logs <container>` for the actual failure (often the corrupted-image
+issue in Step 4), then `nemoclaw uninstall` and reinstall from Step 4 rather
+than hand-editing `~/.nemoclaw/*.json`.
 
 ## 7. Test OpenClaw (both modes)
 
@@ -290,6 +313,50 @@ Push only if network access and rules allow it.
 - **NemoClaw onboarding interrupted** → `nemoclaw onboard --resume`
 - **Sandbox/OpenClaw unhealthy** → `nemoclaw factoryops status`, `nemoclaw host probe`. Don't delete the sandbox without a backup.
 - **Repo not visible in sandbox** → confirm `PROJECT_DIR="$(pwd -P)"` is absolute, re-run `nemoclaw onboard`.
+- **NemoClaw state stuck / won't reinstall cleanly** → `nemoclaw uninstall`, then reinstall from Step 4.
+- **`nemoclaw uninstall` fails: "Failed to acquire lock on ~/.nemoclaw-portable-host.lock"** → the lock is stale, usually left by a NemoClaw process that was killed (e.g. `kill -9`) instead of exiting cleanly. Confirm the owning PID is actually dead, then remove the lock and retry:
+  ```bash
+  cat ~/.nemoclaw-portable-host.lock/owner        # PID it thinks holds the lock
+  ps -p "$(cat ~/.nemoclaw-portable-host.lock/owner)"   # confirm dead/zombie before removing
+  rm -rf ~/.nemoclaw-portable-host.lock
+  nemoclaw uninstall
+  ```
+  Don't remove the lock if that PID is still a live NemoClaw process.
+- **`nemoclaw uninstall` reports "Uninstall completed with errors" / "Could not remove gateway registration 'nemoclaw': openshell gateway remove failed"** → usually harmless: the gateway was already removed by an earlier step, and `openshell gateway remove` errors on a gateway that no longer exists instead of treating it as success. Confirm there's nothing left before ignoring it:
+  ```bash
+  openshell gateway list        # "No gateways found." confirms it's already gone
+  ```
+  If it does list a gateway, remove it manually with `openshell gateway remove <name>` and re-run `nemoclaw uninstall`.
+- **Full reset: uninstall NemoClaw and remove everything** → when in doubt, tear down all of it in this order rather than picking individual fixes above:
+  ```bash
+  docker rm -f $(docker ps -aq --filter name=factoryops) 2>/dev/null   # stop any sandbox container
+  rm -rf ~/.nemoclaw-portable-host.lock                                # clear a stale lock, if present
+  nemoclaw uninstall --yes --destroy-user-data                         # remove CLI, OpenShell, ~/.nemoclaw state
+  docker system prune -a --volumes -f                                  # purge all cached images/layers
+  docker images && openshell gateway list 2>&1                         # confirm both are empty
+  ```
+  Then reinstall fresh from Step 4. This is the same recovery path used
+  above for a corrupted image or a stuck registry, just run end-to-end.
+- **Sandbox creation disconnects (🧪 laptop test on WSL2)** → check for OOM kills with `dmesg -T | egrep -i 'oom|killed process'`. WSL2 defaults to ~50% host RAM / no swap, which isn't enough for Docker + the sandbox + a loaded model at once. On Windows, create/edit `C:\Users\<you>\.wslconfig`:
+  ```ini
+  [wsl2]
+  memory=12GB
+  processors=6
+  swap=8GB
+  ```
+  Then from PowerShell: `wsl --shutdown`, and reopen Ubuntu. If Docker Desktop's WSL2 backend is in use, also raise its memory/CPU limits under Settings → Resources.
+- **Sandbox never reaches Ready / container crash-loops (e.g. `libelf.so.1: file too short`) / `destroy` refuses with "could not select exactly one recovery record"** → a corrupted image, not a transient glitch; retrying `destroy` won't clear it since the crash-looping container never reaches a confirmable "absent" state. Note: `docker images` showing the same ID/age after reinstalling is *normal* (that timestamp is the image's build time, not your pull time) — it does **not** by itself mean Docker reused a bad local cache. Rule out a local cache issue first with a full purge:
+  ```bash
+  docker rm -f $(docker ps -aq --filter name=factoryops)   # stop the crash-looping container (frees the image)
+  docker system prune -a --volumes -f                       # purge all cached images/layers, not just this one
+  docker images                                              # confirm it's empty
+  nemoclaw uninstall
+  ```
+  If the truncation still recurs after that (check `dmesg -T | egrep -i 'corrupt|i/o error'` for signs of an unclean WSL2/Docker Desktop VM shutdown), the corruption is in Docker Desktop's own backing VM disk, not Docker's image cache. Fix from **Windows**, not inside the distro:
+  1. PowerShell: `wsl --shutdown`, then reopen Docker Desktop.
+  2. If it recurs again, Docker Desktop → Troubleshoot → Clean/Purge data (or "Reset to factory defaults") to rebuild the VM disk — a plain restart alone doesn't repair existing corruption.
+  Then reinstall from Step 4 and verify the freshly pulled image with
+  `docker run --rm <image> ip netns list` before re-onboarding.
 
 ## Final checklist
 
