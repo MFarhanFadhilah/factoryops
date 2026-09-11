@@ -1,0 +1,4 @@
+record_id,date,machine_id,fault_code,symptom,verified_cause,resolution,downtime_minutes
+184,2025-11-03,M4,M4-E17,Conveyor stopped after belt service,Belt misalignment,Realigned belt and verified tension,42
+211,2026-02-14,M4,M4-E17,Drive overload during restart,Excess belt tension,Adjusted tension to specification,31
+287,2026-06-20,M4,M4-E17,Intermittent torque overload,Conveyor obstruction,Removed packaging debris,18
