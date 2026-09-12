@@ -69,6 +69,27 @@
       "unit": "C",
       "severity": "medium",
       "description": "Corroborating bearing temperature rise alongside elevated vibration."
+    },
+    {
+      "rule_id": "RULE-HARDNESS-01",
+      "scenario": "compression_force_high",
+      "metric": "tablet_hardness_kp",
+      "comparator": "gt",
+      "threshold": 12.71,
+      "unit": "kp",
+      "severity": "medium",
+      "description": "Elevated tablet hardness corroborating high compression force."
+    },
+    {
+      "rule_id": "RULE-THICKNESS-01",
+      "scenario": "compression_force_high",
+      "metric": "tablet_thickness_mm",
+      "comparator": "abs_deviation_gt",
+      "target": 4.5,
+      "threshold": 0.05,
+      "unit": "mm",
+      "severity": "medium",
+      "description": "Tablet thickness deviates from target, corroborating high compression force."
     }
   ]
 }
