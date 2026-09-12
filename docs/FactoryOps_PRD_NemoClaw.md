@@ -216,7 +216,7 @@ Image data is not needed for the core demo. Force anomaly, weight variation, and
 
 ## 11. RAG corpus
 
-The package includes current downloaded copies of 21 CFR Part 211, FDA process-validation/PAT/data-integrity/Part 11/OOS guidance, ICH Q8/Q9/Q10, one public rotary-press manual, and synthetic demo SOPs. Regulatory guidance is not a site SOP. Every synthetic SOP is labeled non-production.
+The package includes current downloaded copies of 21 CFR Part 211, FDA process-validation/PAT/data-integrity/Part 11/OOS guidance, ICH Q8/Q9/Q10, one public rotary-press manual, and synthetic demo SOPs. Regulatory guidance is not a site SOP. Every synthetic SOP is labeled non-production. `skills/documents/GAMP 2022.pdf` is team-only background material for build methodology and is explicitly not part of the live RAG corpus or tracked citations.
 
 Recommended chunking: 500–800 tokens with 80–120 overlap, page-aware extraction, top-8 hybrid retrieval, optional local reranking to top 4, and SHA-256 provenance checks.
 

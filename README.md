@@ -14,6 +14,7 @@ License: MIT
 - [Policy gate](#policy-gate)
 - [RAG corpus](#rag-corpus)
 - [Running the demo](#running-the-demo)
+- [Tests](#tests)
 - [Audit trail](#audit-trail)
 - [Full spec](#full-spec)
 
@@ -35,6 +36,8 @@ Core system — what actually runs:
 | `docs/FactoryOps_PRD_NemoClaw.md` | Canonical product/IT requirements spec |
 | `DEMO.md` | Copy-paste demo prompts for all 5 scenarios plus the guardrail and audit checks |
 | `switch-model.sh` | Swaps which local Ollama chat+embedding pair is loaded |
+| `requirements.txt` | Pinned external dependencies (`pypdf` for RAG PDF extraction; all other tools are stdlib) |
+| `LICENSE` | MIT license (Team DoryClaw) |
 
 Gitignored / local-only:
 
@@ -136,6 +139,20 @@ Run `python3 tools/rag_search.py` to (re)build `rag/_index_cache.json` and sanit
 ## Running the demo
 
 See `DEMO.md` for 9 ready-to-paste prompts: normal operation, all 4 incident types, a guardrail-refusal check, and a human-approval + audit-trail check.
+
+## Tests
+
+All unit and contract tests can be executed with:
+
+```bash
+pytest tests/ -v
+```
+
+| Test file | What it tests |
+|---|---|
+| `tests/test_tools_readonly.py` | Read-only tools against baseline and incident telemetry/history (`INC-000` to `INC-004`) |
+| `tests/test_policy.py` | Action policy gate enforcement (`ALLOW`, `DENY`, `HUMAN_APPROVAL_REQUIRED`) |
+| `tests/test_registry.py` | Tool registry contract adherence, unknown tool handling, and execution modes |
 
 ## Audit trail
 
