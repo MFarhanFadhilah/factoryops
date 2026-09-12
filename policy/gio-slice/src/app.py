@@ -35,6 +35,12 @@ CSS = """
 <style>
 .stApp { background: #f3f4f6; }
 #MainMenu, footer, header { visibility: hidden; }
+/* Streamlit relocates the "re-expand the sidebar" button into the header
+   once the sidebar is collapsed — hiding the whole header (above, for the
+   default deploy/hamburger chrome) silently hid this too, so collapsing
+   the sidebar was a one-way trip with no way back. Force just this one
+   control visible again; the rest of the header stays hidden. */
+header[data-testid="stHeader"] [data-testid="stExpandSidebarButton"] { visibility: visible !important; }
 section[data-testid="stSidebar"] { background: #ffffff; border-right: 1px solid #e5e7eb; }
 section[data-testid="stSidebar"] .stButton > button {
   background: none; border: none; border-left: 3px solid transparent;
