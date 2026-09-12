@@ -1,0 +1,36 @@
+{
+  "_comment": "tablet_press_events_blind.csv has no scenario_label column, so window boundaries can't be scanned from the data the way get_telemetry_window does for the labeled dataset. These window_start/window_end values are copied verbatim from the SEGMENTS list in generate_blind_dataset.py, which is what actually created this CSV - open that file to verify these are the true injection points, not a separate guess.",
+  "source_csv": "tablet_press_events_blind.csv",
+  "incidents": {
+    "INC-100": {
+      "machine_id": "PRESS-RTP41-DEMO",
+      "window_start": "2026-09-13T09:00:00+00:00",
+      "window_end": "2026-09-13T09:04:59+00:00",
+      "note": "first normal stretch, before any injected anomaly - baseline for the blind-dataset equivalent of Acceptance Test 5"
+    },
+    "INC-101": {
+      "machine_id": "PRESS-RTP41-DEMO",
+      "window_start": "2026-09-13T09:05:00+00:00",
+      "window_end": "2026-09-13T09:09:59+00:00",
+      "note": "generate_blind_dataset.py SEGMENTS entry (300, 600, 'force')"
+    },
+    "INC-102": {
+      "machine_id": "PRESS-RTP41-DEMO",
+      "window_start": "2026-09-13T09:15:00+00:00",
+      "window_end": "2026-09-13T09:19:59+00:00",
+      "note": "generate_blind_dataset.py SEGMENTS entry (900, 1200, 'weight')"
+    },
+    "INC-103": {
+      "machine_id": "PRESS-RTP41-DEMO",
+      "window_start": "2026-09-13T09:25:00+00:00",
+      "window_end": "2026-09-13T09:29:59+00:00",
+      "note": "generate_blind_dataset.py SEGMENTS entry (1500, 1800, 'eject')"
+    },
+    "INC-104": {
+      "machine_id": "PRESS-RTP41-DEMO",
+      "window_start": "2026-09-13T09:35:00+00:00",
+      "window_end": "2026-09-13T09:39:59+00:00",
+      "note": "generate_blind_dataset.py SEGMENTS entry (2100, 2400, 'vibration')"
+    }
+  }
+}
