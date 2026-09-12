@@ -1,5 +1,7 @@
-work_order,date,machine_id,activity,component,finding,technician
-WO-1001,2026-08-18,PRESS-RTP41-DEMO,Punch set cleaned and inspected,station 27,No visible wear; returned to service,tech_a
-WO-1002,2026-08-25,PRESS-RTP41-DEMO,Feeder calibration,feeder,Offset corrected; verification passed,tech_b
-WO-1003,2026-09-03,PRESS-RTP41-DEMO,Bearing vibration review,main drive bearing,Trend elevated but below demo threshold; monitor,tech_c
-WO-1004,2026-09-09,PRESS-RTP41-DEMO,Lubrication inspection,upper punch guides,Residue observed and cleaned,tech_a
+work_order,date,machine_id,activity,component,finding,technician,outcome,hours_to_forced_shutdown
+WO-0925,2025-10-14,PRESS-RTP41-DEMO,Vibration alarm investigation,main drive bearing,Elevated drive vibration observed; teardown confirmed severe bearing race wear and spalling,tech_c,bearing_replacement,10.2
+WO-0965,2026-02-20,PRESS-RTP41-DEMO,Vibration alarm investigation,main drive bearing,High-frequency vibration alarm triggered; mechanical teardown confirmed drive bearing fatigue and roller damage,tech_c,bearing_replacement,14.1
+WO-1001,2026-08-18,PRESS-RTP41-DEMO,Punch set cleaned and inspected,station 27,No visible wear; returned to service,tech_a,,
+WO-1002,2026-08-25,PRESS-RTP41-DEMO,Feeder calibration,feeder,Offset corrected; verification passed,tech_b,,
+WO-1003,2026-09-03,PRESS-RTP41-DEMO,Vibration alarm investigation,main drive bearing,Drive vibration alarm inspected; motor coupling misalignment identified with no physical bearing damage,tech_c,alignment_correction,9.9
+WO-1004,2026-09-09,PRESS-RTP41-DEMO,Lubrication inspection,upper punch guides,Residue observed and cleaned,tech_a,,

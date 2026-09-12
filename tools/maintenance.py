@@ -18,10 +18,22 @@ def get_maintenance_history(machine_id, component=None):
                 continue
             records.append(dict(row))
 
+    shutdown_hours = [
+        float(r["hours_to_forced_shutdown"])
+        for r in records
+        if r.get("hours_to_forced_shutdown") and r["hours_to_forced_shutdown"].strip()
+    ]
+    mean_hours = (
+        round(sum(shutdown_hours) / len(shutdown_hours), 2)
+        if shutdown_hours
+        else None
+    )
+
     return {
         "machine_id": machine_id,
         "component_filter": component,
         "record_count": len(records),
+        "mean_hours_to_forced_shutdown": mean_hours,
         "records": records,
     }
 
@@ -29,3 +41,4 @@ def get_maintenance_history(machine_id, component=None):
 if __name__ == "__main__":
     print(json.dumps(get_maintenance_history("PRESS-RTP41-DEMO"), indent=2))
     print(json.dumps(get_maintenance_history("PRESS-RTP41-DEMO", component="feeder"), indent=2))
+    print(json.dumps(get_maintenance_history("PRESS-RTP41-DEMO", component="bearing"), indent=2))

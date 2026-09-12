@@ -159,11 +159,26 @@ def test_get_maintenance_history_valid():
     assert all("feeder" in r["component"].lower() for r in res_filtered["records"])
 
 
+def test_get_maintenance_history_bearing_and_feeder_metrics():
+    # Bearing component filter
+    res_bearing = get_maintenance_history("PRESS-RTP41-DEMO", component="bearing")
+    assert "error" not in res_bearing
+    assert res_bearing["record_count"] == 3
+    assert res_bearing["mean_hours_to_forced_shutdown"] == pytest.approx(11.4)
+
+    # Feeder component filter (non-incident work order returns null, not 0)
+    res_feeder = get_maintenance_history("PRESS-RTP41-DEMO", component="feeder")
+    assert "error" not in res_feeder
+    assert res_feeder["record_count"] == 1
+    assert res_feeder["mean_hours_to_forced_shutdown"] is None
+
+
 def test_get_maintenance_history_unknown():
     res = get_maintenance_history("MACHINE-DOES-NOT-EXIST")
     assert "error" not in res
     assert res["record_count"] == 0
     assert res["records"] == []
+    assert res["mean_hours_to_forced_shutdown"] is None
 
 
 # ---------------------------------------------------------------------------
