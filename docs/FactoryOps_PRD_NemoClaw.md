@@ -1,4 +1,4 @@
-# FactoryOps — NemoClaw-First Product and IT Requirements
+# Pill FactoryOps — NemoClaw-First Product and IT Requirements
 
 **Version:** 2.1 — mandatory NemoClaw + Ollama/Qwen3 revision  
 **Target:** Dell Pro Max with NVIDIA GB10  
@@ -7,9 +7,9 @@
 
 ## 1. Product decision
 
-FactoryOps targets one synthetic rotary tablet press and four scenarios: abnormal compression force, tablet-weight variation, sticking/picking proxy, and excessive vibration indicating a possible tooling or bearing issue.
+Pill FactoryOps targets one synthetic rotary tablet press and four scenarios: abnormal compression force, tablet-weight variation, sticking/picking proxy, and excessive vibration indicating a possible tooling or bearing issue.
 
-**NemoClaw is mandatory.** FactoryOps runs as an OpenClaw agent inside a NemoClaw-managed OpenShell sandbox. NemoClaw owns onboarding, lifecycle, policy application, and managed inference routing. The application remains decision support: it cannot write to a PLC, change process parameters, delete evidence, or disposition a batch.
+**NemoClaw is mandatory.** Pill FactoryOps runs as an OpenClaw agent inside a NemoClaw-managed OpenShell sandbox. NemoClaw owns onboarding, lifecycle, policy application, and managed inference routing. The application remains decision support: it cannot write to a PLC, change process parameters, delete evidence, or disposition a batch.
 
 ## 2. Runtime architecture
 
@@ -22,7 +22,7 @@ Dell Pro Max GB10 host
 |   `-- inference.local -> host Ollama -> qwen3:8b
 `-- NemoClaw-managed OpenShell sandbox: factoryops
     |-- OpenClaw runtime
-    |   `-- FactoryOps Investigator
+    |   `-- Pill FactoryOps Investigator
     |-- local typed read-only tools
     |-- local hybrid RAG and PDF/Markdown corpus
     |-- deterministic pharmaceutical policy gate
@@ -34,7 +34,7 @@ OpenShell controls technical capabilities such as network, filesystem, process, 
 
 ## 3. Agent definition
 
-> FactoryOps Investigator is a local OpenClaw agent deployed through NemoClaw that investigates tablet-press anomalies using telemetry, deterministic calculations, maintenance history, and cited GMP evidence, then submits a catalogued recommendation to a human approval gate.
+> Pill FactoryOps Investigator is a local OpenClaw agent deployed through NemoClaw that investigates tablet-press anomalies using telemetry, deterministic calculations, maintenance history, and cited GMP evidence, then submits a catalogued recommendation to a human approval gate.
 
 ### Behavioral contract
 
@@ -281,7 +281,7 @@ If behind schedule, cut vision, reranking, and optional anomaly ML. **Do not cut
 
 ## 16. Definition of done
 
-The project is complete only when the OpenClaw FactoryOps Investigator runs inside a healthy NemoClaw-managed OpenShell sandbox, uses the managed Ollama/Qwen3 8B route through `inference.local`, calls typed tools, retrieves local cited evidence, passes deterministic policy, requires human approval, and completes the scripted scenario without a cloud API.
+The project is complete only when the OpenClaw Pill FactoryOps Investigator runs inside a healthy NemoClaw-managed OpenShell sandbox, uses the managed Ollama/Qwen3 8B route through `inference.local`, calls typed tools, retrieves local cited evidence, passes deterministic policy, requires human approval, and completes the scripted scenario without a cloud API.
 
 ## 17. Disclaimer
 

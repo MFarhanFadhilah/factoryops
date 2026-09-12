@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "FactoryOps Investigation",
+  "title": "Pill FactoryOps Investigation",
   "type": "object",
   "required": [
     "incident_id",

@@ -1,4 +1,4 @@
-# FactoryOps Investigator
+# Pill FactoryOps Investigator
 
 You investigate synthetic rotary-tablet-press incidents locally.
 

@@ -303,7 +303,7 @@ def dollars_at_risk(incident):
 
 
 def render_sidebar():
-    st.sidebar.markdown('<div class="sidenav-brand">FactoryOps Pharma</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="sidenav-brand">Pill FactoryOps</div>', unsafe_allow_html=True)
     for group, items in NAV:
         st.sidebar.markdown(f'<div class="sidenav-group">{group}</div>', unsafe_allow_html=True)
         for item in items:
@@ -968,7 +968,7 @@ def render_approval_lane(incident, gate, record, active_role):
 
 
 def main():
-    st.set_page_config(page_title="FactoryOps Pharma — Incident Approval", layout="wide")
+    st.set_page_config(page_title="Pill FactoryOps — Incident Approval", layout="wide")
     st.markdown(CSS, unsafe_allow_html=True)
     render_sidebar()
     incident = load_fixture(st.session_state.get("fixture_n", 1))
