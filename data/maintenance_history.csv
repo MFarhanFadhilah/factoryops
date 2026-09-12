@@ -1,0 +1,5 @@
+work_order,date,machine_id,activity,component,finding,technician
+WO-1001,2026-08-18,PRESS-RTP41-DEMO,Punch set cleaned and inspected,station 27,No visible wear; returned to service,tech_a
+WO-1002,2026-08-25,PRESS-RTP41-DEMO,Feeder calibration,feeder,Offset corrected; verification passed,tech_b
+WO-1003,2026-09-03,PRESS-RTP41-DEMO,Bearing vibration review,main drive bearing,Trend elevated but below demo threshold; monitor,tech_c
+WO-1004,2026-09-09,PRESS-RTP41-DEMO,Lubrication inspection,upper punch guides,Residue observed and cleaned,tech_a

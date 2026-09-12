@@ -1,0 +1,4 @@
+{"incident_id": "INC-001", "scenario": "compression_force_high", "expected_action": "HOLD_AND_INSPECT", "policy": "HUMAN_APPROVAL_REQUIRED"}
+{"incident_id": "INC-002", "scenario": "weight_variation", "expected_action": "HOLD_AND_SAMPLE", "policy": "HUMAN_APPROVAL_REQUIRED"}
+{"incident_id": "INC-003", "scenario": "sticking_picking_proxy", "expected_action": "PAUSE_AND_INSPECT_TOOLING", "policy": "HUMAN_APPROVAL_REQUIRED"}
+{"incident_id": "INC-004", "scenario": "vibration_bearing", "expected_action": "CONTROLLED_STOP_AND_MAINTENANCE_REVIEW", "policy": "HUMAN_APPROVAL_REQUIRED"}
