@@ -37,10 +37,16 @@ def _find_source(filename):
 def _extract_pages(path):
     """Returns a list of (page_number_or_None, text)."""
     if path.suffix.lower() == ".pdf":
-        from pypdf import PdfReader
+        try:
+            from pypdf import PdfReader
 
-        reader = PdfReader(str(path))
-        return [(i + 1, page.extract_text() or "") for i, page in enumerate(reader.pages)]
+            reader = PdfReader(str(path))
+            return [(i + 1, page.extract_text() or "") for i, page in enumerate(reader.pages)]
+        except ImportError:
+            import pdfplumber
+
+            with pdfplumber.open(str(path)) as pdf:
+                return [(i + 1, page.extract_text() or "") for i, page in enumerate(pdf.pages)]
     return [(None, path.read_text(encoding="utf-8", errors="ignore"))]
 
 
