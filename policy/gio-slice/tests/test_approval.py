@@ -6,12 +6,17 @@ from pathlib import Path
 from approval import (
     AUDIT_FIELDS,
     MEANING_QA,
+    MEANING_QA_DENY,
     MEANING_SUPERVISOR,
+    MEANING_SUPERVISOR_DEVIATION,
     STATE_BOTH_SIGNED,
     STATE_PRESENTED,
+    STATE_QA_HOLD,
     STATE_RESOLVED,
     STATE_SUPERVISOR_SIGNED,
     append_audit,
+    can_sign,
+    is_on_hold,
     is_resolved,
     new_record,
     resolve,
@@ -32,9 +37,19 @@ def option_c(incident):
     return next(opt for opt in incident["options"] if opt["id"] == "C")
 
 
+def option_a(incident):
+    return next(opt for opt in incident["options"] if opt["id"] == "A")
+
+
 def record():
     incident = fixture_1()
     option = option_c(incident)
+    return new_record(incident, option, evaluate(incident, option))
+
+
+def deviation_record():
+    incident = fixture_1()
+    option = option_a(incident)
     return new_record(incident, option, evaluate(incident, option))
 
 
@@ -139,6 +154,88 @@ def test_second_supervisor_sign_is_noop():
     sign_supervisor(rec, clock=CLOCK)
     assert len(rec["signatures"]) == 1
     assert len(rec["audit"]) == 1
+
+
+def test_can_sign_enforces_segregation_of_duties():
+    rec = record()
+    # At Presented: supervisor may act, QA may not.
+    assert can_sign(rec, ROLE_SUPERVISOR) is True
+    assert can_sign(rec, ROLE_QA) is False
+    sign_supervisor(rec, clock=CLOCK)
+    # After supervisor signs: supervisor cannot re-sign, QA may act.
+    assert can_sign(rec, ROLE_SUPERVISOR) is False
+    assert can_sign(rec, ROLE_QA) is True
+    sign_qa(rec, clock=CLOCK)
+    # Both signed: neither role can act again.
+    assert can_sign(rec, ROLE_SUPERVISOR) is False
+    assert can_sign(rec, ROLE_QA) is False
+
+
+def test_can_sign_unknown_role_is_false():
+    assert can_sign(record(), "Plant Manager") is False
+
+
+def test_qa_can_deny_with_a_reason():
+    # 21 CFR 211.22 gives the quality unit authority to approve OR reject —
+    # not just review. A denial is a real, distinct terminal state, not the
+    # green "resolved" path.
+    rec = record()
+    sign_supervisor(rec, clock=CLOCK)
+    sign_qa(rec, decision="deny", reason="Repair history incomplete; hold for investigation.", clock=CLOCK)
+    assert rec["state"] == STATE_QA_HOLD
+    assert is_on_hold(rec) is True
+    assert is_resolved(rec) is False
+    qa_sig = rec["signatures"][1]
+    assert qa_sig["decision"] == "deny"
+    assert qa_sig["meaning"] == MEANING_QA_DENY
+    assert qa_sig["meaning"] != MEANING_QA
+    assert rec["audit"][-1]["why"] == "Repair history incomplete; hold for investigation."
+
+
+def test_qa_deny_without_reason_is_rejected():
+    # approval-forms-design: rejections always carry a required comment.
+    # No reason means no denial is recorded — not a silent default to deny.
+    rec = record()
+    sign_supervisor(rec, clock=CLOCK)
+    sign_qa(rec, decision="deny", reason="", clock=CLOCK)
+    assert rec["state"] == STATE_SUPERVISOR_SIGNED
+    assert len(rec["signatures"]) == 1
+    assert len(rec["audit"]) == 1
+
+
+def test_qa_approve_needs_no_reason():
+    rec = record()
+    sign_supervisor(rec, clock=CLOCK)
+    sign_qa(rec, decision="approve", clock=CLOCK)
+    assert rec["state"] == STATE_BOTH_SIGNED
+    assert rec["signatures"][1]["decision"] == "approve"
+    assert rec["signatures"][1]["meaning"] == MEANING_QA
+
+
+def test_qa_hold_is_terminal_for_this_slice():
+    # Once denied, QA cannot re-sign and the record cannot resolve.
+    rec = record()
+    sign_supervisor(rec, clock=CLOCK)
+    sign_qa(rec, decision="deny", reason="Quality hold pending investigation.", clock=CLOCK)
+    assert can_sign(rec, ROLE_QA) is False
+    resolve(rec, clock=CLOCK)
+    assert rec["state"] == STATE_QA_HOLD
+    assert is_resolved(rec) is False
+
+
+def test_supervisor_meaning_is_deviation_specific():
+    # Continuing outside the limit isn't an intervention — "approved" is the
+    # wrong word for it. The signature meaning must say something different,
+    # per 21 CFR 11.50 / GAMP App M1 §5.2 (the meaning of each signature must
+    # be defined and distinct).
+    rec = deviation_record()
+    sign_supervisor(rec, clock=CLOCK)
+    assert rec["signatures"][0]["meaning"] == MEANING_SUPERVISOR_DEVIATION
+    assert rec["signatures"][0]["meaning"] != MEANING_SUPERVISOR
+    assert rec["required_approvers"] == [ROLE_SUPERVISOR, ROLE_QA]
+    sign_qa(rec, decision="approve", clock=CLOCK)
+    resolve(rec, clock=CLOCK)
+    assert is_resolved(rec) is True
 
 
 def test_append_audit_timestamp_is_system_generated():

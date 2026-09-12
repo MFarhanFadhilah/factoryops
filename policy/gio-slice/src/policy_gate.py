@@ -68,13 +68,17 @@ def evaluate(incident, option):
         )
 
     if change_type == "Deviation" and limit_violations(incident):
-        return _result(
-            "DENY",
-            [],
-            ["21 CFR 211.100(b)"],
-            change_type,
-            quality_flag,
-        )
+        # Autonomous continuation is denied (rule 1) — but a human choosing to
+        # continue is not the same thing. 21 CFR 211.100(b) requires the
+        # deviation to be "recorded and justified," which is a signed act, not
+        # a dead end. The operating unit signs; the quality unit reviews too
+        # whenever a CQA-linked parameter has moved (rule 5), same as Repair.
+        approvers = [ROLE_SUPERVISOR]
+        basis = ["21 CFR 211.100(b)"]
+        if quality_flag:
+            approvers.append(ROLE_QA)
+            basis.append("21 CFR 211.22")
+        return _result("HUMAN_APPROVAL", approvers, basis, change_type, quality_flag)
 
     proposed_rpm = option.get("proposed_turret_speed_rpm")
     if proposed_rpm is not None and not _speed_in_qualified_range(incident, proposed_rpm):

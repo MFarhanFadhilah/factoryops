@@ -6,9 +6,17 @@ STATE_PRESENTED = "Presented"
 STATE_SUPERVISOR_SIGNED = "SupervisorSigned"
 STATE_BOTH_SIGNED = "BothSigned"
 STATE_RESOLVED = "Resolved"
+STATE_QA_HOLD = "QualityHold"
 
+# A Deviation (continuing outside the approved limit) is not an intervention —
+# nothing is being changed or repaired, so "approved" is the wrong word for
+# what the Supervisor is signing. Distinct term, not a synonym: see
+# AGENTS.md's rule against inventing new synonyms for things that already
+# have a name. "Acknowledged" names a different act on purpose.
 MEANING_SUPERVISOR = "intervention approved"
+MEANING_SUPERVISOR_DEVIATION = "deviation acknowledged"
 MEANING_QA = "batch disposition reviewed"
+MEANING_QA_DENY = "batch disposition denied"
 
 SIGNER_SUPERVISOR_NAME = "A. Rivera"
 SIGNER_QA_NAME = "K. Chen"
@@ -72,6 +80,12 @@ def _advance_if_complete(record):
         record["state"] = STATE_PRESENTED
 
 
+def supervisor_meaning(record):
+    if record.get("change_type") == "Deviation":
+        return MEANING_SUPERVISOR_DEVIATION
+    return MEANING_SUPERVISOR
+
+
 def sign_supervisor(record, name=SIGNER_SUPERVISOR_NAME, clock=None):
     if record["state"] != STATE_PRESENTED:
         return record
@@ -81,11 +95,12 @@ def sign_supervisor(record, name=SIGNER_SUPERVISOR_NAME, clock=None):
         return record
     before = {"state": record["state"], "signatures": [sig["role"] for sig in record["signatures"]]}
     timestamp = _iso(clock)
+    meaning = supervisor_meaning(record)
     record["signatures"].append(
         {
             "role": ROLE_SUPERVISOR,
             "name": name,
-            "meaning": MEANING_SUPERVISOR,
+            "meaning": meaning,
             "timestamp": timestamp,
         }
     )
@@ -93,7 +108,7 @@ def sign_supervisor(record, name=SIGNER_SUPERVISOR_NAME, clock=None):
         record,
         who=name,
         what=f"signed option {record['option_id']} on {record['incident_id']}",
-        why=f"{record['change_type']}: {MEANING_SUPERVISOR}",
+        why=f"{record['change_type']}: {meaning}",
         before=before,
         clock=clock,
     )
@@ -101,32 +116,52 @@ def sign_supervisor(record, name=SIGNER_SUPERVISOR_NAME, clock=None):
     return record
 
 
-def sign_qa(record, name=SIGNER_QA_NAME, clock=None):
+def sign_qa(record, name=SIGNER_QA_NAME, decision="approve", reason=None, clock=None):
+    """QA's judgment, not a rubber stamp: 21 CFR 211.22 gives the quality
+    unit authority to approve OR reject. A denial requires a reason — see
+    approval-forms-design's rule that rejections always carry a required
+    comment and are never silently defaulted (unlike an approve, which
+    doesn't need one to be a legitimate record).
+    """
     if record["state"] != STATE_SUPERVISOR_SIGNED:
         return record
     if ROLE_QA not in record["required_approvers"]:
         return record
     if _has_role(record, ROLE_QA):
         return record
+    if decision not in ("approve", "deny"):
+        return record
+    if decision == "deny" and not (reason and reason.strip()):
+        return record
     before = {"state": record["state"], "signatures": [sig["role"] for sig in record["signatures"]]}
     timestamp = _iso(clock)
+    meaning = MEANING_QA if decision == "approve" else MEANING_QA_DENY
     record["signatures"].append(
         {
             "role": ROLE_QA,
             "name": name,
-            "meaning": MEANING_QA,
+            "meaning": meaning,
+            "decision": decision,
+            "reason": reason,
             "timestamp": timestamp,
         }
     )
     append_audit(
         record,
         who=name,
-        what=f"reviewed batch disposition for {record['incident_id']}",
-        why="21 CFR 211.22",
+        what=(
+            f"reviewed batch disposition for {record['incident_id']}"
+            if decision == "approve"
+            else f"denied batch disposition for {record['incident_id']}"
+        ),
+        why=reason if decision == "deny" else "21 CFR 211.22",
         before=before,
         clock=clock,
     )
-    _advance_if_complete(record)
+    if decision == "deny":
+        record["state"] = STATE_QA_HOLD
+    else:
+        _advance_if_complete(record)
     return record
 
 
@@ -148,5 +183,17 @@ def resolve(record, clock=None):
     return record
 
 
+def can_sign(record, role):
+    if role == ROLE_SUPERVISOR:
+        return record["state"] == STATE_PRESENTED and not _has_role(record, ROLE_SUPERVISOR)
+    if role == ROLE_QA:
+        return record["state"] == STATE_SUPERVISOR_SIGNED and not _has_role(record, ROLE_QA)
+    return False
+
+
 def is_resolved(record):
     return record["state"] == STATE_RESOLVED
+
+
+def is_on_hold(record):
+    return record["state"] == STATE_QA_HOLD

@@ -65,12 +65,18 @@ def test_fixture_1_option_c_human_approval_both_roles(fixture_1):
     assert "21 CFR 211.22" in result["regulatory_basis"]
 
 
-def test_fixture_1_option_a_deny_continuation(fixture_1):
+def test_fixture_1_option_a_requires_signed_deviation(fixture_1):
+    # Continuing outside the limit is never autonomous (rule 1), but a human
+    # choosing it is a deviation that must be "recorded and justified"
+    # (211.100(b)) — a signed act, not a dead end. Quality unit signs too
+    # since a CQA-linked parameter has moved (rule 5), same as Repair.
     result = evaluate(fixture_1, option_by_id(fixture_1, "A"))
-    assert result["decision"] == "DENY"
+    assert result["decision"] == "HUMAN_APPROVAL"
     assert result["change_type"] == "Deviation"
-    assert result["required_approvers"] == []
+    assert result["required_approvers"] == [ROLE_SUPERVISOR, ROLE_QA]
+    assert result["quality_flag"] is True
     assert "21 CFR 211.100(b)" in result["regulatory_basis"]
+    assert "21 CFR 211.22" in result["regulatory_basis"]
 
 
 def test_fixture_1_option_b_human_approval_with_rollback(fixture_1):
@@ -156,5 +162,8 @@ def test_diagnostic_standard_routine_is_allow(fixture_1):
 def test_fixture_2_confidence_is_not_high(fixture_2):
     assert fixture_2["confidence"] in ("LOW", "MEDIUM")
     assert fixture_2["confidence"] != "HIGH"
+    # fixture_2's weight drift is itself a limit violation, so option A is
+    # still a signed deviation here too — see test_fixture_1_option_a_*.
     result = evaluate(fixture_2, option_by_id(fixture_2, "A"))
-    assert result["decision"] == "DENY"
+    assert result["decision"] == "HUMAN_APPROVAL"
+    assert result["required_approvers"] == [ROLE_SUPERVISOR, ROLE_QA]
