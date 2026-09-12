@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "description": "Synthetic demo economics matching FactoryOps Requirements.pdf Step 6 (production_rate x downtime x contribution_margin). Not real plant costs - clearly labeled synthetic per the PDF's own instruction.",
+  "tablets_per_hour": 180000,
+  "contribution_margin_usd_per_1000_tablets": 35,
+  "estimated_downtime_hours": {
+    "CONTINUE_MONITORING": 0,
+    "HOLD_AND_SAMPLE": 1,
+    "HOLD_AND_INSPECT": 2,
+    "PAUSE_AND_INSPECT_TOOLING": 3,
+    "CONTROLLED_STOP_AND_MAINTENANCE_REVIEW": 4,
+    "INSUFFICIENT_EVIDENCE": 0
+  }
+}

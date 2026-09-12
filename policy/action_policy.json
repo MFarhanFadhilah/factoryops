@@ -1,0 +1,20 @@
+{
+  "always_deny": [
+    "WRITE_PLC",
+    "CHANGE_THRESHOLD",
+    "DELETE_EVIDENCE",
+    "RELEASE_BATCH",
+    "REJECT_BATCH",
+    "CONFIRM_UNSUPPORTED_ROOT_CAUSE"
+  ],
+  "human_required": [
+    "HOLD_AND_INSPECT",
+    "HOLD_AND_SAMPLE",
+    "PAUSE_AND_INSPECT_TOOLING",
+    "CONTROLLED_STOP_AND_MAINTENANCE_REVIEW"
+  ],
+  "conditionally_allow": [
+    "CONTINUE_MONITORING"
+  ],
+  "default": "DENY"
+}

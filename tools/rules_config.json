@@ -1,0 +1,95 @@
+{
+  "version": "1.0.0",
+  "min_sustained_seconds": 3,
+  "risk_scoring": {
+    "base_points": {
+      "low": 10,
+      "medium": 25,
+      "high": 45,
+      "critical": 65
+    },
+    "max_overage_bonus": 20,
+    "overage_cap_ratio": 1.0,
+    "severity_bands": [
+      {"floor": 75, "label": "critical"},
+      {"floor": 40, "label": "high"},
+      {"floor": 15, "label": "medium"},
+      {"floor": 0, "label": "low"}
+    ],
+    "description": "risk = sum over triggered rules of (base_points[rule.severity] + min(excess_ratio, overage_cap_ratio) * max_overage_bonus), capped at 100. excess_ratio = (observed - threshold) / threshold. Computed from raw telemetry only; never reads a pre-labeled score column."
+  },
+  "rules": [
+    {
+      "rule_id": "RULE-FORCE-01",
+      "scenario": "compression_force_high",
+      "metric": "main_compression_force_kn",
+      "comparator": "gt",
+      "threshold": 20.0,
+      "unit": "kN",
+      "severity": "high",
+      "description": "Main compression force exceeds demonstration threshold; normal band observed up to ~19.0 kN."
+    },
+    {
+      "rule_id": "RULE-WEIGHT-01",
+      "scenario": "weight_variation",
+      "metric": "tablet_weight_mg",
+      "comparator": "abs_deviation_gt",
+      "target": 500.0,
+      "threshold": 10.0,
+      "unit": "mg",
+      "severity": "medium",
+      "description": "Estimated tablet weight deviates from the 500 mg target by more than the demonstration tolerance."
+    },
+    {
+      "rule_id": "RULE-EJECT-01",
+      "scenario": "sticking_picking_proxy",
+      "metric": "ejection_force_kn",
+      "comparator": "gt",
+      "threshold": 0.85,
+      "unit": "kN",
+      "severity": "medium",
+      "description": "Elevated ejection force is a telemetry proxy only; never sufficient alone to confirm sticking/picking."
+    },
+    {
+      "rule_id": "RULE-VIBRATION-01",
+      "scenario": "vibration_bearing",
+      "metric": "vibration_rms_mm_s",
+      "comparator": "gt",
+      "threshold": 1.5,
+      "unit": "mm/s",
+      "severity": "high",
+      "description": "Vibration RMS exceeds demonstration threshold; normal band observed up to ~1.47 mm/s."
+    },
+    {
+      "rule_id": "RULE-BEARING-TEMP-01",
+      "scenario": "vibration_bearing",
+      "metric": "bearing_temp_c",
+      "comparator": "gt",
+      "threshold": 32.0,
+      "unit": "C",
+      "severity": "medium",
+      "description": "Corroborating bearing temperature rise alongside elevated vibration."
+    },
+    {
+      "rule_id": "RULE-HARDNESS-01",
+      "scenario": "compression_force_high",
+      "metric": "tablet_hardness_kp",
+      "comparator": "gt",
+      "threshold": 12.71,
+      "unit": "kp",
+      "severity": "medium",
+      "description": "Elevated tablet hardness corroborating high compression force."
+    },
+    {
+      "rule_id": "RULE-THICKNESS-01",
+      "scenario": "compression_force_high",
+      "metric": "tablet_thickness_mm",
+      "comparator": "abs_deviation_gt",
+      "target": 4.5,
+      "threshold": 0.05,
+      "unit": "mm",
+      "severity": "medium",
+      "description": "Tablet thickness deviates from target, corroborating high compression force."
+    }
+  ]
+}
