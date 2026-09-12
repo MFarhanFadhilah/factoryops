@@ -105,6 +105,8 @@ The application shall replay CSV records containing timestamp, machine and batch
 
 Rule configuration shall be versioned outside prompts. Tools shall return rule ID, observed value, configured demonstration threshold, duration, severity, and calculation provenance.
 
+Thresholds are calibrated to this machine's own operating baseline using a zone-based monitoring approach inspired by ISO 20816 — not a fixed universal ISO number. For the vibration_bearing incident, the observed vibration is 3.4 mm/s (actual max reading in the vibration_bearing demo scenario) against 1.5 mm/s (calibrated threshold, tools/rules_config.json RULE-VIBRATION-01) (3.4 / 1.5 = 2.27x, 126.7% above threshold), with bearing temperature reaching 34.2°C (actual max bearing_temp_c reading in the vibration_bearing demo scenario) against 32.0°C (calibrated threshold, tools/rules_config.json RULE-BEARING-TEMP-01).
+
 ### FR-5 Hybrid RAG
 
 The local RAG service shall ingest PDFs and Markdown, preserve document/page/chunk/hash metadata, and combine lexical and dense retrieval. It shall retrieve top passages, optionally rerank locally, and provide explicit citations. Regulation, guidance, public machine manual, and synthetic SOP must remain distinguishable.

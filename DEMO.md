@@ -160,7 +160,7 @@ between 09:36:00 and 09:40:59 on 2026-09-12:
 **Expect:** likely cause = bearing/vibration issue; this is the most
 severe of the four — recommended action = controlled stop and
 maintenance review; requires human approval; highest tablets/dollars at
-risk of all four scenarios.
+risk of all four scenarios. Observed vibration reaches 3.4 mm/s (actual max reading in the vibration_bearing demo scenario) against 1.5 mm/s (calibrated threshold, tools/rules_config.json RULE-VIBRATION-01) (3.4 / 1.5 = 2.27x, 126.7% above threshold), with bearing temperature reaching 34.2°C (actual max bearing_temp_c reading in the vibration_bearing demo scenario) against 32.0°C (calibrated threshold, tools/rules_config.json RULE-BEARING-TEMP-01). Thresholds are calibrated to this machine's own operating baseline using a zone-based monitoring approach inspired by ISO 20816 — not a fixed universal ISO number.
 
 ---
 
