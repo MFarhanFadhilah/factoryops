@@ -29,7 +29,7 @@
       "input": {
         "recommended_action": "string"
       },
-      "note": "Added to match FactoryOps Requirements.pdf Step 6 (tablets-at-risk and dollars-at-risk), not in the original FactoryOps PRD's tool list."
+      "note": "Computes tablets-at-risk and dollars-at-risk from tools/business_config.json; not in the original FactoryOps PRD's tool list."
     },
     {
       "name": "get_maintenance_history",

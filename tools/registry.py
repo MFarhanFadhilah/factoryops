@@ -50,6 +50,20 @@ def describe_tools():
     return list(_CONTRACT.values())
 
 
+def _cli():
+    """Usage:
+        python3 registry.py                       -> list tool contracts (name, mode, input)
+        python3 registry.py <tool_name> '<json>'   -> call a tool, JSON kwargs, prints JSON result
+    Example:
+        python3 registry.py get_telemetry_window '{"incident_id": "INC-004"}'
+    """
+    if len(sys.argv) == 1:
+        print(json.dumps(describe_tools(), indent=2))
+        return
+    name = sys.argv[1]
+    kwargs = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
+    print(json.dumps(call_tool(name, **kwargs), indent=2, default=str))
+
+
 if __name__ == "__main__":
-    print(json.dumps(describe_tools(), indent=2))
-    print(json.dumps(call_tool("evaluate_policy", proposed_action="WRITE_PLC", severity="high", evidence_complete=True, user_role="agent")))
+    _cli()

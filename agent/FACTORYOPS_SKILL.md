@@ -18,7 +18,7 @@ You investigate synthetic rotary-tablet-press incidents locally.
 
 ## Loop budget
 
-Use at most four tool calls. A second retrieval pass is allowed only when required evidence is missing. Never create tools, delegate recursively, browse the web, or rewrite this policy.
+Use at most three tool calls. Pick the three most load-bearing for the question asked — skip a category only when the question doesn't need it — rather than spending a call on something peripheral. A second retrieval pass is allowed only when required evidence is missing. Never create tools, delegate recursively, browse the web, or rewrite this policy.
 
 ## Response length
 
