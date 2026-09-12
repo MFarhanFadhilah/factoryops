@@ -2,6 +2,8 @@
 
 FactoryOps is a local OpenClaw investigation agent, running inside a NemoClaw-managed OpenShell sandbox, that investigates tablet-press anomalies from telemetry, deterministic calculations, maintenance history, and cited GMP evidence — then routes any recommendation through a human approval gate. The fixed inference stack is **host Ollama + `qwen3:8b`**, reached by the sandbox only through NemoClaw/OpenShell `inference.local`. It cannot write to a PLC, change process parameters, delete evidence, or disposition a batch.
 
+License: MIT
+
 ## Contents
 
 - [Repo map](#repo-map)
@@ -149,4 +151,4 @@ python3 -c "from tools.audit import read_audit_log; import json; print(json.dump
 
 ---
 
-Synthetic hackathon demonstration only — not a validated pharmaceutical manufacturing system. Its thresholds, SOPs, and recommendations must not be used to operate real equipment or make real GMP batch decisions.
+Synthetic hackathon demonstration only — not a validated pharmaceutical manufacturing system. Its thresholds, SOPs, and recommendations must not be used to operate real equipment or make real GMP batch decisions. License: MIT.
