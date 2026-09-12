@@ -1,0 +1,83 @@
+{
+  "incident_id": "TP-04-INC003",
+  "machine_id": "TP-04",
+  "machine_type": "Rotary Tablet Press",
+  "batch_id": "BATCH-DEMO-001",
+  "product": "500 mg tablet",
+  "labeled_weight_mg": 500,
+  "timestamp": "2026-09-12T09:26:30",
+  "data_source": "real_feed:PRESS-RTP41-DEMO/INC-003",
+  "turret_speed_rpm": 45,
+  "main_compression_force_kn": 18.0,
+  "precompression_force_kn": 3.5,
+  "tablet_weight_mean_mg": 500.11,
+  "tablet_weight_rsd_pct": 0.4,
+  "vibration_mm_s": 1.2,
+  "motor_temperature_c": 31.0,
+  "alarm_code": "TP-EJECT-HIGH",
+  "max_vibration_mm_s": 1.5,
+  "max_motor_temperature_c": 32.0,
+  "tablet_weight_tolerance_pct": 2,
+  "qualified_speed_range_rpm": [30, 50],
+  "last_bearing_inspection_days": 25,
+  "prior_similar_incidents": 0,
+  "prior_outcomes": [],
+  "mean_hours_to_forced_shutdown": 3,
+  "tablets_per_hour": 180000,
+  "contribution_margin_per_1000": 35,
+  "ejection_force_kn": 1.95,
+  "max_ejection_force_kn": 0.85,
+  "tablet_thickness_mm": 4.573,
+  "target_tablet_thickness_mm": 4.5,
+  "tablet_thickness_tolerance_mm": 0.05,
+  "retrieved": [
+    {
+      "tier": "T1",
+      "source": "SOP-DEMO-003 — Sticking/Picking (synthetic demo SOP)",
+      "section": "SOP",
+      "page": "n/a",
+      "text": "Telemetry cannot confirm this visible defect. Requires physical observation or inspection: tooling condition, residue, lubrication context, ejection-force trend, and cleaning history."
+    },
+    {
+      "tier": "T2",
+      "source": "Maintenance history, TP-04 — tooling",
+      "section": "history",
+      "page": "n/a",
+      "text": "1 tooling work order in the window: punch set cleaned and inspected 25 days ago, no visible wear found. No confirmed prior sticking/picking incident on this press."
+    }
+  ],
+  "likely_cause": "Tooling sticking or picking",
+  "confidence": "MEDIUM",
+  "confidence_basis": [
+    "ejection force 1.95 kN outside approved limit 0.85 kN",
+    "tablet thickness 4.573 mm outside 4.5 mm target ± 0.05 mm",
+    "telemetry alone cannot confirm sticking or picking — the SOP requires physical inspection to confirm",
+    "no confirmed prior sticking/picking incident on this press to corroborate"
+  ],
+  "options": [
+    {
+      "id": "A",
+      "description": "Continue operation",
+      "gamp_change_type": "Deviation",
+      "risk": "high",
+      "output_loss_pct": 0
+    },
+    {
+      "id": "B",
+      "description": "Turret speed 45 → 35 RPM",
+      "gamp_change_type": "Temporary Change",
+      "risk": "medium",
+      "output_loss_pct": 22,
+      "proposed_turret_speed_rpm": 35,
+      "rollback_review_by": "18:00"
+    },
+    {
+      "id": "C",
+      "description": "Pause production + inspect tooling",
+      "gamp_change_type": "Repair",
+      "risk": "low",
+      "output_loss_pct": 100,
+      "changes_specification": false
+    }
+  ]
+}

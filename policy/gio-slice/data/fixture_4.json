@@ -1,0 +1,78 @@
+{
+  "incident_id": "TP-04-INC004",
+  "machine_id": "TP-04",
+  "machine_type": "Rotary Tablet Press",
+  "batch_id": "BATCH-DEMO-001",
+  "product": "500 mg tablet",
+  "labeled_weight_mg": 500,
+  "timestamp": "2026-09-12T09:35:30",
+  "data_source": "real_feed:PRESS-RTP41-DEMO/INC-004",
+  "turret_speed_rpm": 45,
+  "main_compression_force_kn": 18.0,
+  "precompression_force_kn": 3.5,
+  "tablet_weight_mean_mg": 499.86,
+  "tablet_weight_rsd_pct": 0.4,
+  "vibration_mm_s": 3.4,
+  "motor_temperature_c": 34.2,
+  "alarm_code": "TP-VIB-HIGH",
+  "max_vibration_mm_s": 1.5,
+  "max_motor_temperature_c": 32.0,
+  "tablet_weight_tolerance_pct": 2,
+  "qualified_speed_range_rpm": [30, 50],
+  "last_bearing_inspection_days": 9,
+  "prior_similar_incidents": 3,
+  "prior_outcomes": ["bearing", "bearing", "align"],
+  "mean_hours_to_forced_shutdown": 4,
+  "tablets_per_hour": 180000,
+  "contribution_margin_per_1000": 35,
+  "retrieved": [
+    {
+      "tier": "T1",
+      "source": "SOP-DEMO-004 — Vibration (synthetic demo SOP)",
+      "section": "SOP",
+      "page": "n/a",
+      "text": "Correlate vibration with temperature, speed, and maintenance history. A controlled-stop recommendation requires human approval; the agent cannot stop the press."
+    },
+    {
+      "tier": "T2",
+      "source": "Maintenance history, TP-04 — 3 bearing work orders",
+      "section": "history",
+      "page": "n/a",
+      "text": "2 of 3 vibration-alarm investigations on the main drive bearing ended in bearing replacement. 1 found only coupling misalignment. Last bearing work order 9 days ago."
+    }
+  ],
+  "likely_cause": "Main-drive bearing degradation",
+  "confidence": "HIGH",
+  "confidence_basis": [
+    "vibration 3.4 mm/s outside approved limit 1.5 mm/s",
+    "bearing temperature 34.2 C outside approved limit 32.0 C",
+    "2 of 3 prior similar incidents resolved by bearing replacement",
+    "retrieved SOP names vibration + bearing temperature as the correlating failure mode"
+  ],
+  "options": [
+    {
+      "id": "A",
+      "description": "Continue operation",
+      "gamp_change_type": "Deviation",
+      "risk": "high",
+      "output_loss_pct": 0
+    },
+    {
+      "id": "B",
+      "description": "Turret speed 45 → 35 RPM",
+      "gamp_change_type": "Temporary Change",
+      "risk": "medium",
+      "output_loss_pct": 22,
+      "proposed_turret_speed_rpm": 35,
+      "rollback_review_by": "18:00"
+    },
+    {
+      "id": "C",
+      "description": "Controlled shutdown + bearing inspection",
+      "gamp_change_type": "Repair",
+      "risk": "low",
+      "output_loss_pct": 100,
+      "changes_specification": false
+    }
+  ]
+}

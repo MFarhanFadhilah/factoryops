@@ -1,8 +1,10 @@
+import re
 from pathlib import Path
 
 from app import (
     EMPTY_CAUSE,
     EMPTY_RETRIEVAL,
+    FIXTURE_LABELS,
     QA_DENY_NEEDS_REASON,
     approval_intro_html,
     approval_lane_html,
@@ -38,7 +40,7 @@ from approval import (
     sign_qa,
     sign_supervisor,
 )
-from policy_gate import evaluate
+from policy_gate import evaluate, limit_violations
 
 
 def _signed_record(fixture_n, option_id):
@@ -416,6 +418,98 @@ def test_qa_signature_never_says_approved():
         assert "compliant" not in low
     assert "reviewed" in blocks[1].lower()
     assert "denied" in blocks[2].lower()
+
+
+EVIDENCE_ROW = re.compile(r'<div class="evidence-row"><span>([^<]+)</span><span>(.*?)</span></div>')
+
+
+def _evidence_rows(n):
+    """Every Evidence row on a fixture's gate lane, as {label: reading}."""
+    incident = load_fixture(n)
+    html = gate_lane_html(incident, evaluate(incident, option(incident, "C")))
+    return dict(EVIDENCE_ROW.findall(html))
+
+
+def test_evidence_panel_follows_the_incident_not_a_hardcoded_three():
+    # The panel used to print vibration / motor temperature / weight RSD no
+    # matter what was loaded. Sticking or picking (fixture 5) is diagnosed by
+    # neither of the first two — its signal is ejection force and tablet
+    # thickness, fields fixtures 1–3 do not even carry.
+    one = _evidence_rows(1)
+    assert list(one) == ["Vibration", "Motor temperature", "Tablet weight RSD"]
+    assert "Ejection force" not in one
+    assert "Tablet thickness" not in one
+    five = _evidence_rows(5)
+    assert list(five) == [
+        "Vibration",
+        "Motor temperature",
+        "Tablet weight RSD",
+        "Ejection force",
+        "Tablet thickness",
+    ]
+    assert "1.95&nbsp;kN · limit 0.85&nbsp;kN" in five["Ejection force"]
+    assert "target 4.5&nbsp;mm ± 0.05&nbsp;mm" in five["Tablet thickness"]
+    # The row that never had a limit still has none.
+    assert five["Tablet weight RSD"] == "0.4%"
+
+
+def test_fixture_4_flags_the_readings_the_gate_counted():
+    rows = _evidence_rows(4)
+    assert '<span class="delta-bad">+127%</span>' in rows["Vibration"]
+    assert "3.4&nbsp;mm/s · limit 1.5&nbsp;mm/s" in rows["Vibration"]
+    assert '<span class="delta-bad">+2&nbsp;°C</span>' in rows["Motor temperature"]
+    assert "34.2&nbsp;°C · limit 32.0&nbsp;°C" in rows["Motor temperature"]
+    incident = load_fixture(4)
+    assert tablets_at_risk(incident) == 720000
+    assert dollars_at_risk(incident) == 25200
+
+
+def test_fixture_5_normal_readings_carry_no_red_badge():
+    # Red is this screen's word for "outside the approved limit". Fixture 5's
+    # vibration and motor temperature are real readings that are genuinely
+    # inside their limits, so flagging them would say something untrue.
+    rows = _evidence_rows(5)
+    assert rows["Vibration"] == "1.2&nbsp;mm/s · limit 1.5&nbsp;mm/s"
+    assert rows["Motor temperature"] == "31.0&nbsp;°C · limit 32.0&nbsp;°C"
+    assert "delta-bad" not in rows["Tablet weight RSD"]
+    # The two that are outside their limits are the two the gate counted.
+    violations = limit_violations(load_fixture(5))
+    assert violations == ["ejection_force_kn", "tablet_thickness_mm"]
+    assert '<span class="delta-bad">+129%</span>' in rows["Ejection force"]
+    assert '<span class="delta-bad">±0.073&nbsp;mm</span>' in rows["Tablet thickness"]
+    incident = load_fixture(5)
+    assert tablets_at_risk(incident) == 540000
+    assert dollars_at_risk(incident) == 18900
+
+
+def test_real_feed_fixtures_are_whole_lanes_with_no_stray_tags():
+    # Same regression check every pass runs: a row that does not apply must not
+    # leave a whitespace-only line inside the raw HTML block, which is how a
+    # literal </div> reached the screen once already.
+    for n in (4, 5):
+        incident, gate, page = _page_for(n)
+        assert "&lt;/div&gt;" not in page
+        assert page.count("<div") == page.count("</div>")
+        lane = gate_lane_html(incident, gate)
+        assert lane.count('class="lane-body"') == 1
+        assert lane.count("<div") == lane.count("</div>")
+        assert "compliant" not in page.lower()
+        assert "anomaly" not in page.lower()
+    assert load_fixture(4)["confidence"] == "HIGH"
+    assert "medium" in gate_lane_html(
+        load_fixture(5), evaluate(load_fixture(5), option(load_fixture(5), "C"))
+    ).lower()
+
+
+def test_dev_switcher_offers_both_real_feed_fixtures():
+    # 2 stays out of the switcher on purpose — it proves confidence varies, in
+    # the tests, and is not part of the demo path.
+    assert list(FIXTURE_LABELS) == [1, 3, 4, 5]
+    assert 2 not in FIXTURE_LABELS
+    for n, label in FIXTURE_LABELS.items():
+        assert label.startswith(f"{n} — ")
+    assert "real feed" in FIXTURE_LABELS[4]
+    assert "real feed" in FIXTURE_LABELS[5]
 
 
 def test_fixture_3_shells_still_named():

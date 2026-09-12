@@ -18,7 +18,7 @@ from approval import (
     sign_supervisor,
     supervisor_meaning,
 )
-from policy_gate import ROLE_QA, ROLE_SUPERVISOR, evaluate
+from policy_gate import ROLE_QA, ROLE_SUPERVISOR, evaluate, limit_violations
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
@@ -119,8 +119,13 @@ div[class*="st-key-lanebody_"] .option-card:last-child { margin-bottom: 0; }
   color: #374151; margin-top: 12px; }
 .cause-headline { font-size: 18px; font-weight: 600; color: #00447C; }
 .muted { color: #9ca3af; font-size: 13px; }
-.evidence-row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px;
+.evidence-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 13px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; border-top: 1px solid #f3f4f6; }
+/* The parameter's name is the column you read down; it never wraps. Only the
+   reading may, and "Tablet thickness" — the longest label and the longest
+   reading on the panel — was breaking both. */
+.evidence-row > span:first-child { white-space: nowrap; }
+.evidence-row > span:last-child { text-align: right; }
 .delta-bad { color: #dc2626; font-weight: 700; }
 .tile-wrap { display: flex; gap: 12px; }
 .tile { flex: 1; background: #f3f4f6; border-radius: 4px; padding: 10px 14px; }
@@ -302,8 +307,20 @@ def dollars_at_risk(incident):
     return int(tablets_at_risk(incident) / 1000 * incident["contribution_margin_per_1000"])
 
 
+# The dev switcher's fixtures, in demo order. 2 (ambiguous) is deliberately
+# not here — it exists to prove confidence varies and is exercised by the
+# tests, not by the demo. 4 and 5 are built from the team's real tool output,
+# so the label says so: they are the answer to "is this only a mockup?".
+FIXTURE_LABELS = {
+    1: "1 — clean (demo)",
+    3: "3 — empty retrieval",
+    4: "4 — vibration bearing (real feed)",
+    5: "5 — sticking/picking (real feed)",
+}
+
+
 def render_sidebar():
-    st.sidebar.markdown('<div class="sidenav-brand">Pill FactoryOps</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="sidenav-brand">FactoryOps Pharma</div>', unsafe_allow_html=True)
     for group, items in NAV:
         st.sidebar.markdown(f'<div class="sidenav-group">{group}</div>', unsafe_allow_html=True)
         for item in items:
@@ -314,8 +331,8 @@ def render_sidebar():
     st.sidebar.markdown('<div class="fixture-label">Demo fixture (dev)</div>', unsafe_allow_html=True)
     st.sidebar.radio(
         "Demo fixture (dev)",
-        [1, 3],
-        format_func=lambda n: "1 — clean (demo)" if n == 1 else "3 — empty retrieval",
+        list(FIXTURE_LABELS),
+        format_func=lambda n: FIXTURE_LABELS[n],
         key="fixture_n",
         label_visibility="collapsed",
     )
@@ -399,12 +416,111 @@ def _muted_line(text, margin="6px 0 0"):
     return f'<p class="muted" style="margin:{margin};">{text}</p>' if text else ""
 
 
+def _trim(value):
+    """3 dp, no trailing zeros — 4.573 − 4.5 is 0.07299999999999951 in binary
+    floating point and the panel must not print that at a QA reviewer."""
+    return f"{round(value, 3):g}"
+
+
+def _pct_delta(value, limit):
+    return f"+{int(round((value - limit) / limit * 100))}%"
+
+
+def _degree_delta(value, limit):
+    return f"+{int(value - limit)}&nbsp;°C"
+
+
+def _limit_reading(incident, value_field, limit_field, unit, violated, delta):
+    """The reading, then its approved limit, then the over-limit delta — and
+    the delta only when the gate actually counted this field as a violation.
+
+    Red is this screen's word for "outside the approved limit" (§7), so a
+    reading that is inside its limit — fixture 5's vibration and motor
+    temperature are both real and both normal — shows the number and the
+    limit and nothing else. Assuming the violation instead is what made the
+    panel print "+-20%" in red on a healthy reading.
+    """
+    reading = f'{incident[value_field]}&nbsp;{unit} · limit {incident[limit_field]}&nbsp;{unit}'
+    if not violated:
+        return reading
+    return f'{reading} · <span class="delta-bad">{delta(incident[value_field], incident[limit_field])}</span>'
+
+
+def _vibration_reading(incident, violated):
+    return _limit_reading(incident, "vibration_mm_s", "max_vibration_mm_s", "mm/s", violated, _pct_delta)
+
+
+def _temperature_reading(incident, violated):
+    return _limit_reading(incident, "motor_temperature_c", "max_motor_temperature_c", "°C", violated, _degree_delta)
+
+
+def _ejection_reading(incident, violated):
+    return _limit_reading(incident, "ejection_force_kn", "max_ejection_force_kn", "kN", violated, _pct_delta)
+
+
+def _weight_rsd_reading(incident, violated):
+    # Value only, deliberately: RSD is a spread, not a reading against an
+    # approved ceiling, so it has never carried a limit or a violation flag.
+    return f'{incident["tablet_weight_rsd_pct"]}%'
+
+
+def _thickness_reading(incident, violated):
+    reading = (
+        f'{incident["tablet_thickness_mm"]}&nbsp;mm · '
+        f'target {incident["target_tablet_thickness_mm"]}&nbsp;mm ± '
+        f'{incident["tablet_thickness_tolerance_mm"]}&nbsp;mm'
+    )
+    if not violated:
+        return reading
+    deviation = _trim(abs(incident["tablet_thickness_mm"] - incident["target_tablet_thickness_mm"]))
+    return f'{reading} · <span class="delta-bad">±{deviation}&nbsp;mm</span>'
+
+
+# (label, fields the row needs, policy_gate violation key, reading builder).
+# Ordered: the three readings every press incident carries, then the ones a
+# specific failure mode brings with it. A row appears only if the incident
+# actually holds its fields, and its red badge comes from
+# policy_gate.limit_violations() — so the panel shows what this incident's
+# decision rests on rather than the same three parameters every time. Sticking
+# or picking (fixture 5) is diagnosed by ejection force and tablet thickness;
+# showing vibration and motor temperature alone would have been two irrelevant
+# numbers where the evidence should be.
+EVIDENCE_ROWS = (
+    ("Vibration", ("vibration_mm_s", "max_vibration_mm_s"), "vibration_mm_s", _vibration_reading),
+    ("Motor temperature", ("motor_temperature_c", "max_motor_temperature_c"), "motor_temperature_c", _temperature_reading),
+    ("Tablet weight RSD", ("tablet_weight_rsd_pct",), None, _weight_rsd_reading),
+    ("Ejection force", ("ejection_force_kn", "max_ejection_force_kn"), "ejection_force_kn", _ejection_reading),
+    (
+        "Tablet thickness",
+        ("tablet_thickness_mm", "target_tablet_thickness_mm", "tablet_thickness_tolerance_mm"),
+        "tablet_thickness_mm",
+        _thickness_reading,
+    ),
+)
+
+
+def evidence_rows_html(incident):
+    """The Evidence rows for whatever CQA parameters this incident carries.
+
+    Through _join_fragments, and the caller keeps the result inline on the
+    line above <details>: a row that does not apply must not leave a
+    whitespace-only line inside the raw HTML block — that is exactly what put
+    a literal </div> on screen on an earlier pass.
+    """
+    violations = limit_violations(incident)
+    return _join_fragments(
+        *(
+            f'<div class="evidence-row"><span>{label}</span>'
+            f'<span>{reading(incident, key in violations)}</span></div>'
+            for label, fields, key, reading in EVIDENCE_ROWS
+            if all(incident.get(field) is not None for field in fields)
+        )
+    )
+
+
 def gate_lane_html(incident, gate, show_next=True):
-    vibration_delta = (incident["vibration_mm_s"] - incident["max_vibration_mm_s"]) / incident["max_vibration_mm_s"]
-    temp_delta = incident["motor_temperature_c"] - incident["max_motor_temperature_c"]
     cause = cause_line(incident)
     basis = ", ".join(incident["confidence_basis"])
-    pct = int(round(vibration_delta * 100))
     confidence_block = _join_fragments(
         f'<p class="muted">{basis}</p>',
         _muted_line(alternate_cause_line(incident), margin="6px 0 12px"),
@@ -422,10 +538,7 @@ def gate_lane_html(incident, gate, show_next=True):
     {confidence_block}
     <div class="evidence-header">
       <div class="eyebrow" style="margin-top:0;">Evidence</div>
-    </div>
-    <div class="evidence-row"><span>Vibration</span><span>{incident["vibration_mm_s"]}&nbsp;mm/s · limit {incident["max_vibration_mm_s"]}&nbsp;mm/s · <span class="delta-bad">+{pct}%</span></span></div>
-    <div class="evidence-row"><span>Motor temperature</span><span>{incident["motor_temperature_c"]}&nbsp;°C · limit {incident["max_motor_temperature_c"]}&nbsp;°C · <span class="delta-bad">+{int(temp_delta)}&nbsp;°C</span></span></div>
-    <div class="evidence-row"><span>Tablet weight RSD</span><span>{incident["tablet_weight_rsd_pct"]}%</span></div>
+    </div>{evidence_rows_html(incident)}
     <details class="evidence-disclosure">
       <summary>Review Evidence</summary>
       {retrieved_html(incident)}
@@ -470,9 +583,19 @@ CHANGE_TAG_CLASS = {
 }
 
 OPTION_DETAIL = {
-    "A": "Continuing to run with vibration above the approved limit is a deviation: it can proceed only once it's recorded, justified and signed for. Not recommended — the wear causing the incident goes unaddressed.",
-    "B": "Slows the turret to cut vibration until the planned repair, at an estimated {loss}% output loss. It only qualifies as a Temporary Change if rollback is reviewed by {rollback} — without that, the gate denies this option.",
-    "C": "Like-for-like bearing repair — the specification doesn't change, so GAMP classifies it as pre-approved. Estimated intervention: 3.5&nbsp;hr of downtime before the line resumes.",
+    # Deliberately parameter-agnostic — this incident's evidence panel is
+    # what says which reading is over limit; naming just one here would be
+    # wrong on any incident with more than one (fixture_4) or a different
+    # one entirely (fixture_5's ejection force / thickness, not vibration).
+    "A": "Continuing to run outside the approved limit is a deviation: it can proceed only once it's recorded, justified and signed for. Not recommended — the underlying cause goes unaddressed.",
+    "B": "Slows the turret to reduce mechanical stress until the planned repair, at an estimated {loss}% output loss. It only qualifies as a Temporary Change if rollback is reviewed by {rollback} — without that, the gate denies this option.",
+    # {description} is this option's own incident-specific text (e.g.
+    # "Controlled shutdown + bearing inspection" or "Pause production +
+    # inspect tooling") and {downtime} is the incident's own estimated
+    # downtime figure — the same number the impact tile's assumption line
+    # already states, so this can't quote a different figure than the rest
+    # of the screen.
+    "C": "{description} — the specification doesn't change, so GAMP classifies it as pre-approved. Estimated intervention: {downtime}&nbsp;hr of downtime before the line resumes.",
 }
 
 
@@ -526,7 +649,10 @@ def option_card_html(incident, option_id, gate, expanded, chosen=False, show_hea
             f'<span>{marks}</span></div>'
         )
     detail = OPTION_DETAIL.get(option_id, "").format(
-        loss=opt.get("output_loss_pct", ""), rollback=opt.get("rollback_review_by", "")
+        loss=opt.get("output_loss_pct", ""),
+        rollback=opt.get("rollback_review_by", ""),
+        description=opt.get("description", ""),
+        downtime=incident.get("mean_hours_to_forced_shutdown", ""),
     )
     # The chosen option's verdict is the screen's verdict: the gate evaluates
     # whatever is selected, so this box would repeat word for word what the
@@ -752,19 +878,59 @@ def qa_block_html(record, active_role=None):
 """
 
 
+# A recovered value is computed from THIS incident's own limit/target, never
+# a fixed number — the old hardcoded "4.3 mm/s" was still above fixture_4's
+# real 1.5 mm/s limit, which made "resolved" show a reading that would still
+# fail. gt-limit checks recover to a value comfortably under the limit;
+# target/tolerance checks recover to the target itself.
+def _recovered_from_limit(limit):
+    return _trim(round(limit * 0.65, 3))
+
+
+RESOLVED_ROWS = {
+    "vibration_mm_s": ("Vibration", "mm/s", lambda i: _recovered_from_limit(i["max_vibration_mm_s"])),
+    "motor_temperature_c": ("Motor temperature", "°C", lambda i: _recovered_from_limit(i["max_motor_temperature_c"])),
+    "ejection_force_kn": ("Ejection force", "kN", lambda i: _recovered_from_limit(i["max_ejection_force_kn"])),
+    "tablet_thickness_mm": ("Tablet thickness", "mm", lambda i: _trim(i["target_tablet_thickness_mm"])),
+    "tablet_weight_mean_mg": ("Tablet weight", "mg", lambda i: _trim(i["labeled_weight_mg"])),
+}
+
+
+def resolved_rows_html(incident):
+    """One before → after line per parameter this incident's gate actually
+    flagged, plus tablet weight RSD as a standing quality confirmation (it
+    has never carried a limit of its own — see _weight_rsd_reading)."""
+    violations = limit_violations(incident)
+    rows = [
+        f'<div>{label}&nbsp; <span class="arrow-from">{incident[key]}</span> → '
+        f'<span class="arrow-to">{after_fn(incident)}</span>&nbsp;{unit}</div>'
+        for key, (label, unit, after_fn) in RESOLVED_ROWS.items()
+        if key in violations
+    ]
+    if incident.get("tablet_weight_rsd_pct") is not None:
+        rows.append(
+            f'<div>Weight RSD&nbsp; <span class="arrow-from">{incident["tablet_weight_rsd_pct"]}%</span> → '
+            '<span class="arrow-to">1.1%</span></div>'
+        )
+    return "".join(rows)
+
+
 def resolved_html(incident):
-    return f"""
-    <div class="resolved-detail">
-      <div class="eyebrow" style="margin-top:0;">Post-Intervention Verification</div>
-      <div class="muted" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;">
-        <div>Vibration&nbsp; <span class="arrow-from">{incident["vibration_mm_s"]}</span> → <span class="arrow-to">4.3</span>&nbsp;mm/s</div>
-        <div>Motor temp&nbsp; <span class="arrow-from">{incident["motor_temperature_c"]}</span> → <span class="arrow-to">66</span>&nbsp;°C</div>
-        <div>Weight RSD&nbsp; <span class="arrow-from">{incident["tablet_weight_rsd_pct"]}%</span> → <span class="arrow-to">1.1%</span></div>
-      </div>
-      <p class="muted" style="margin:8px 0 0;">Maintenance recommendation: inspect bearing at next scheduled service.</p>
-      <div class="quality-flag">Batch {incident["batch_id"]} remains flagged for QA disposition</div>
-    </div>
-"""
+    # rows is interpolated inline, never alone on its own line: an empty
+    # result (no violated field this fixture set exercises today, but the
+    # function must stay correct if one ever did) must not leave a
+    # whitespace-only line inside this raw HTML block.
+    rows = resolved_rows_html(incident)
+    return _join_fragments(
+        '<div class="resolved-detail">',
+        '<div class="eyebrow" style="margin-top:0;">Post-Intervention Verification</div>',
+        '<div class="muted" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;">',
+        rows,
+        "</div>",
+        '<p class="muted" style="margin:8px 0 0;">Maintenance recommendation: re-verify at next scheduled service.</p>',
+        f'<div class="quality-flag">Batch {incident["batch_id"]} remains flagged for QA disposition</div>',
+        "</div>",
+    )
 
 
 def hold_html(incident, record):
@@ -968,7 +1134,7 @@ def render_approval_lane(incident, gate, record, active_role):
 
 
 def main():
-    st.set_page_config(page_title="Pill FactoryOps — Incident Approval", layout="wide")
+    st.set_page_config(page_title="FactoryOps Pharma — Incident Approval", layout="wide")
     st.markdown(CSS, unsafe_allow_html=True)
     render_sidebar()
     incident = load_fixture(st.session_state.get("fixture_n", 1))

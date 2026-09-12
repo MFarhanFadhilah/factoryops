@@ -13,23 +13,45 @@ def classify(option):
     return None
 
 
+# (measured field, approved-limit field, violation key) for every CQA-linked
+# parameter checked by simple "outside its approved limit" (gt). Shared shape
+# with app.py's evidence panel, so the gate and the screen read the same list
+# of what this incident's decision actually rests on and can't drift apart —
+# a new failure mode (e.g. ejection force for sticking/picking) is one row
+# here, not a change to the gate's control flow.
+CQA_LIMIT_CHECKS = (
+    ("vibration_mm_s", "max_vibration_mm_s", "vibration_mm_s"),
+    ("motor_temperature_c", "max_motor_temperature_c", "motor_temperature_c"),
+    ("ejection_force_kn", "max_ejection_force_kn", "ejection_force_kn"),
+)
+
+# (measured field, target field, tolerance field, violation key) for
+# CQA-linked parameters checked by absolute deviation from a target instead
+# of a plain ceiling.
+CQA_TOLERANCE_CHECKS = (
+    ("tablet_weight_mean_mg", "labeled_weight_mg", "tablet_weight_tolerance_pct", "tablet_weight_mean_mg", True),
+    ("tablet_thickness_mm", "target_tablet_thickness_mm", "tablet_thickness_tolerance_mm", "tablet_thickness_mm", False),
+)
+
+
 def limit_violations(incident):
     violations = []
-    vibration = incident.get("vibration_mm_s")
-    max_vibration = incident.get("max_vibration_mm_s")
-    if vibration is not None and max_vibration is not None and vibration > max_vibration:
-        violations.append("vibration_mm_s")
-    temperature = incident.get("motor_temperature_c")
-    max_temperature = incident.get("max_motor_temperature_c")
-    if temperature is not None and max_temperature is not None and temperature > max_temperature:
-        violations.append("motor_temperature_c")
-    mean_mg = incident.get("tablet_weight_mean_mg")
-    labeled = incident.get("labeled_weight_mg")
-    tolerance = incident.get("tablet_weight_tolerance_pct")
-    if mean_mg is not None and labeled is not None and tolerance is not None:
-        delta_pct = abs(mean_mg - labeled) / labeled * 100
-        if delta_pct > tolerance:
-            violations.append("tablet_weight_mean_mg")
+    for value_field, limit_field, key in CQA_LIMIT_CHECKS:
+        value = incident.get(value_field)
+        limit = incident.get(limit_field)
+        if value is not None and limit is not None and value > limit:
+            violations.append(key)
+    for value_field, target_field, tolerance_field, key, tolerance_is_pct in CQA_TOLERANCE_CHECKS:
+        value = incident.get(value_field)
+        target = incident.get(target_field)
+        tolerance = incident.get(tolerance_field)
+        if value is None or target is None or tolerance is None:
+            continue
+        deviation = abs(value - target)
+        if tolerance_is_pct:
+            deviation = deviation / target * 100
+        if deviation > tolerance:
+            violations.append(key)
     return violations
 
 

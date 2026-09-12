@@ -10,6 +10,7 @@ from policy_gate import (
     ROLE_SUPERVISOR,
     classify,
     evaluate,
+    limit_violations,
     signatures_satisfy,
 )
 
@@ -44,8 +45,18 @@ def fixture_3():
     return load_fixture(3)
 
 
+@pytest.fixture
+def fixture_4():
+    return load_fixture(4)
+
+
+@pytest.fixture
+def fixture_5():
+    return load_fixture(5)
+
+
 def test_every_fixture_option_classified_before_rules():
-    for n in (1, 2, 3):
+    for n in (1, 2, 3, 4, 5):
         incident = load_fixture(n)
         for option in incident["options"]:
             change_type = classify(option)
@@ -134,7 +145,7 @@ def test_fixture_3_does_not_invent_likely_cause(fixture_3):
 
 
 def test_return_strings_never_say_compliant():
-    for n in (1, 2, 3):
+    for n in (1, 2, 3, 4, 5):
         incident = load_fixture(n)
         for option in incident["options"]:
             result = evaluate(incident, option)
@@ -157,6 +168,46 @@ def test_diagnostic_standard_routine_is_allow(fixture_1):
     assert result["decision"] == "ALLOW"
     assert result["change_type"] == "Standard/Routine"
     assert result["required_approvers"] == []
+
+
+def test_ejection_force_outside_limit_is_a_violation():
+    # sticking/picking's real signal (INC-003) — the gate had no idea this
+    # parameter existed until fixture_5 needed it. A CQA parameter with no
+    # violation check is a parameter the gate silently can't see.
+    incident = {"ejection_force_kn": 1.95, "max_ejection_force_kn": 0.85}
+    assert "ejection_force_kn" in limit_violations(incident)
+    incident_ok = {"ejection_force_kn": 0.7, "max_ejection_force_kn": 0.85}
+    assert "ejection_force_kn" not in limit_violations(incident_ok)
+
+
+def test_tablet_thickness_deviation_is_a_violation():
+    incident = {"tablet_thickness_mm": 4.6, "target_tablet_thickness_mm": 4.5, "tablet_thickness_tolerance_mm": 0.05}
+    assert "tablet_thickness_mm" in limit_violations(incident)
+    incident_ok = {"tablet_thickness_mm": 4.52, "target_tablet_thickness_mm": 4.5, "tablet_thickness_tolerance_mm": 0.05}
+    assert "tablet_thickness_mm" not in limit_violations(incident_ok)
+
+
+def test_fixture_4_real_feed_vibration_bearing_is_high_confidence(fixture_4):
+    # Real telemetry/RAG pulled from the team's tools (Farhan/Ferdi), not a
+    # hand-invented fixture — see docs/gio-gameday.md build order step 4.
+    assert fixture_4["data_source"].startswith("real_feed:")
+    assert fixture_4["confidence"] == "HIGH"
+    result = evaluate(fixture_4, option_by_id(fixture_4, "C"))
+    assert result["decision"] == "HUMAN_APPROVAL"
+    assert result["change_type"] == "Repair"
+    assert result["required_approvers"] == [ROLE_SUPERVISOR, ROLE_QA]
+
+
+def test_fixture_5_real_feed_sticking_picking_is_medium_confidence(fixture_5):
+    # The scenario's own SOP says telemetry alone can't confirm sticking or
+    # picking — confidence must reflect that, not just the raw signal count.
+    assert fixture_5["data_source"].startswith("real_feed:")
+    assert fixture_5["confidence"] == "MEDIUM"
+    assert fixture_5["prior_similar_incidents"] == 0
+    result = evaluate(fixture_5, option_by_id(fixture_5, "C"))
+    assert result["decision"] == "HUMAN_APPROVAL"
+    assert result["required_approvers"] == [ROLE_SUPERVISOR, ROLE_QA]
+    assert result["quality_flag"] is True
 
 
 def test_fixture_2_confidence_is_not_high(fixture_2):
