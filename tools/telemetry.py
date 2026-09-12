@@ -220,6 +220,6 @@ def get_telemetry_window(incident_id, before_seconds=30, after_seconds=30):
 
 
 if __name__ == "__main__":
-    for inc in ("INC-000", "INC-001", "INC-101"):
+    for inc in ("INC-000", "INC-001", "INC-002", "INC-003", "INC-004", "INC-101"):
         result = get_telemetry_window(inc, before_seconds=5, after_seconds=5)
         print(inc, "->", result.get("window_provenance"), "| rows:", result.get("row_count"))
