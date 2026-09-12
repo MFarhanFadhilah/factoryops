@@ -1,0 +1,71 @@
+{
+  "tools": [
+    {
+      "name": "get_telemetry_window",
+      "mode": "read_only",
+      "input": {
+        "incident_id": "string",
+        "before_seconds": "integer",
+        "after_seconds": "integer"
+      }
+    },
+    {
+      "name": "evaluate_anomaly_rules",
+      "mode": "read_only",
+      "input": {
+        "incident_id": "string"
+      }
+    },
+    {
+      "name": "calculate_production_risk",
+      "mode": "read_only",
+      "input": {
+        "incident_id": "string"
+      }
+    },
+    {
+      "name": "calculate_business_impact",
+      "mode": "deterministic",
+      "input": {
+        "recommended_action": "string"
+      },
+      "note": "Added to match FactoryOps Requirements.pdf Step 6 (tablets-at-risk and dollars-at-risk), not in the original FactoryOps PRD's tool list."
+    },
+    {
+      "name": "get_maintenance_history",
+      "mode": "read_only",
+      "input": {
+        "machine_id": "string",
+        "component": "string|null"
+      }
+    },
+    {
+      "name": "search_rag_documents",
+      "mode": "read_only",
+      "input": {
+        "query": "string",
+        "document_types": "array",
+        "top_k": "integer"
+      }
+    },
+    {
+      "name": "evaluate_policy",
+      "mode": "deterministic",
+      "input": {
+        "proposed_action": "string",
+        "severity": "string",
+        "evidence_complete": "boolean",
+        "user_role": "string"
+      }
+    },
+    {
+      "name": "append_audit_event",
+      "mode": "append_only",
+      "input": {
+        "investigation": "object",
+        "policy_decision": "object",
+        "human_decision": "object"
+      }
+    }
+  ]
+}
