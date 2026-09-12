@@ -2,6 +2,16 @@
 
 Before anyone writes code, the team needs one sentence about whose pain this fixes and one function that fixes it. This is the 45 minutes that saves the other 11 hours.
 
+## The three rules that disqualify you
+
+Check these before the pain statement, because failing one makes everything after it worthless.
+
+- **Built on the day, on the box.** The agent and the system around it get built during the event, on the provided machine. Starter scaffolds and existing libraries are fine. Anything materially built beforehand is disqualified, and that includes a model you fine-tuned and code you wrote last week. Research, market analysis and written method are not the system, so they are fine; keep them visibly separate from the build anyway.
+- **All inference local.** No remote LLM or API call anywhere in the agent's runtime path. See `running-it-all-on-one-box.md` for the required stack and how to prove this rather than claim it.
+- **A real business workflow.** Operations, sales, support, knowledge, devops or research. Toy demos, joke projects and personal-assistant clones are not judged at all. The test is whether a named person at a real company is paid to do this today.
+
+The pain-statement rules below will filter out a toy by accident. Do not rely on that. Ask the question directly: is someone paid to do this today, and would their manager notice if it stopped?
+
 ## Lock the pain
 
 - Write it in one sentence: **"[Who] loses [how much] doing [what task] because [root cause]."**

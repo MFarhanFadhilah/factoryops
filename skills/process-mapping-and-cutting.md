@@ -2,6 +2,10 @@
 
 The build replaces something people already do by hand. Map that process first, cut it hard, then build only what survives. The gates are ordered and the order is the whole point.
 
+**Run the short version unless you are actually re-engineering the process.** The full five gates are for redesigning a workflow you own. If the build replaces one step inside somebody else's process, which is the usual hackathon shape, you are not deleting their steps and Gate 3's deletion target has nothing to delete. In that case run Gate 1 and the bottleneck question at the end of Gate 3, stop there, and spend the saved time on the build. Twenty minutes, not ninety.
+
+Run all five gates only when the team can name which steps it has the authority to remove. If nobody can, that is your answer.
+
 ## Gate 1: Map
 
 - List every step from trigger to output. For each: action, owner (a person's name), touch time, wait time, what must be true before it can start.
