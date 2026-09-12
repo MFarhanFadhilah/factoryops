@@ -23,6 +23,7 @@ CQA_LIMIT_CHECKS = (
     ("vibration_mm_s", "max_vibration_mm_s", "vibration_mm_s"),
     ("motor_temperature_c", "max_motor_temperature_c", "motor_temperature_c"),
     ("ejection_force_kn", "max_ejection_force_kn", "ejection_force_kn"),
+    ("main_compression_force_kn", "max_main_compression_force_kn", "main_compression_force_kn"),
 )
 
 # (measured field, target field, tolerance field, violation key) for

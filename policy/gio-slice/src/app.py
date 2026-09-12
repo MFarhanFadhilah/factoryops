@@ -322,13 +322,18 @@ def dollars_at_risk(incident):
 
 # The dev switcher's fixtures, in demo order. 2 (ambiguous) is deliberately
 # not here — it exists to prove confidence varies and is exercised by the
-# tests, not by the demo. 4 and 5 are built from the team's real tool output,
-# so the label says so: they are the answer to "is this only a mockup?".
+# tests, not by the demo. 4, 5, 6 and 7 are built from the team's real tool
+# output, so the label says so: they are the answer to "is this only a
+# mockup?". Together with 4/5 they cover all four DEMO.md incident types
+# (DEMO.md's own #1, normal operation, has no anomaly and nothing to gate,
+# so it has no fixture here).
 FIXTURE_LABELS = {
     1: "1 — clean (demo)",
     3: "3 — empty retrieval",
     4: "4 — vibration bearing (real feed)",
     5: "5 — sticking/picking (real feed)",
+    6: "6 — compression force (real feed)",
+    7: "7 — weight variation (real feed)",
 }
 
 
@@ -471,6 +476,10 @@ def _ejection_reading(incident, violated):
     return _limit_reading(incident, "ejection_force_kn", "max_ejection_force_kn", "kN", violated, _pct_delta)
 
 
+def _compression_reading(incident, violated):
+    return _limit_reading(incident, "main_compression_force_kn", "max_main_compression_force_kn", "kN", violated, _pct_delta)
+
+
 def _weight_rsd_reading(incident, violated):
     # Value only, deliberately: RSD is a spread, not a reading against an
     # approved ceiling, so it has never carried a limit or a violation flag.
@@ -501,6 +510,7 @@ def _thickness_reading(incident, violated):
 EVIDENCE_ROWS = (
     ("Vibration", ("vibration_mm_s", "max_vibration_mm_s"), "vibration_mm_s", _vibration_reading),
     ("Motor temperature", ("motor_temperature_c", "max_motor_temperature_c"), "motor_temperature_c", _temperature_reading),
+    ("Compression force", ("main_compression_force_kn", "max_main_compression_force_kn"), "main_compression_force_kn", _compression_reading),
     ("Tablet weight RSD", ("tablet_weight_rsd_pct",), None, _weight_rsd_reading),
     ("Ejection force", ("ejection_force_kn", "max_ejection_force_kn"), "ejection_force_kn", _ejection_reading),
     (
@@ -903,6 +913,7 @@ def _recovered_from_limit(limit):
 RESOLVED_ROWS = {
     "vibration_mm_s": ("Vibration", "mm/s", lambda i: _recovered_from_limit(i["max_vibration_mm_s"])),
     "motor_temperature_c": ("Motor temperature", "°C", lambda i: _recovered_from_limit(i["max_motor_temperature_c"])),
+    "main_compression_force_kn": ("Compression force", "kN", lambda i: _recovered_from_limit(i["max_main_compression_force_kn"])),
     "ejection_force_kn": ("Ejection force", "kN", lambda i: _recovered_from_limit(i["max_ejection_force_kn"])),
     "tablet_thickness_mm": ("Tablet thickness", "mm", lambda i: _trim(i["target_tablet_thickness_mm"])),
     "tablet_weight_mean_mg": ("Tablet weight", "mg", lambda i: _trim(i["labeled_weight_mg"])),

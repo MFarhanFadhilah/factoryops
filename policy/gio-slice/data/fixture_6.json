@@ -1,0 +1,83 @@
+{
+  "incident_id": "TP-04-INC001",
+  "machine_id": "TP-04",
+  "machine_type": "Rotary Tablet Press",
+  "batch_id": "BATCH-DEMO-001",
+  "product": "500 mg tablet",
+  "labeled_weight_mg": 500,
+  "timestamp": "2026-09-12T09:13:51",
+  "data_source": "real_feed:PRESS-RTP41-DEMO/INC-001",
+  "turret_speed_rpm": 45,
+  "main_compression_force_kn": 25.003,
+  "precompression_force_kn": 3.5,
+  "tablet_weight_mean_mg": 500.07,
+  "tablet_weight_rsd_pct": 0.4,
+  "vibration_mm_s": 1.2,
+  "motor_temperature_c": 31.0,
+  "alarm_code": "TP-FORCE-HIGH",
+  "max_vibration_mm_s": 1.5,
+  "max_motor_temperature_c": 32.0,
+  "max_main_compression_force_kn": 20.0,
+  "tablet_weight_tolerance_pct": 2,
+  "qualified_speed_range_rpm": [30, 50],
+  "last_bearing_inspection_days": 25,
+  "prior_similar_incidents": 0,
+  "prior_outcomes": [],
+  "mean_hours_to_forced_shutdown": 2,
+  "tablets_per_hour": 180000,
+  "contribution_margin_per_1000": 35,
+  "tablet_thickness_mm": 4.208,
+  "target_tablet_thickness_mm": 4.5,
+  "tablet_thickness_tolerance_mm": 0.05,
+  "retrieved": [
+    {
+      "tier": "T1",
+      "source": "SOP-DEMO-001 — Anomaly Triage (synthetic demo SOP)",
+      "section": "SOP",
+      "page": "n/a",
+      "text": "Elevated tablet hardness and reduced thickness are expected corroborating physical signs of over-compression. During triage of compression force excursions, operators must check tablet hardness and thickness trends alongside process parameters."
+    },
+    {
+      "tier": "T2",
+      "source": "Maintenance history, TP-04 — no matching prior incident",
+      "section": "history",
+      "page": "n/a",
+      "text": "No prior compression-force or hardness/thickness work order on this press. Nearest related record is a punch-set clean/inspect 25 days before this window, which found no visible wear."
+    }
+  ],
+  "likely_cause": "Main compression force set above the approved limit",
+  "confidence": "HIGH",
+  "confidence_basis": [
+    "main compression force 25.003 kN outside approved limit 20.0 kN, sustained 298 s",
+    "tablet hardness 17.404 kp — corroborating physical sign of over-compression (no UI-tracked limit for this field)",
+    "tablet thickness 4.208 mm outside 4.5 mm target ± 0.05 mm — corroborating reduced thickness under excess force",
+    "retrieved SOP names hardness + thickness as the expected corroborating signs of over-compression",
+    "no prior similar incident on this press to corroborate — first occurrence"
+  ],
+  "options": [
+    {
+      "id": "A",
+      "description": "Continue operation",
+      "gamp_change_type": "Deviation",
+      "risk": "high",
+      "output_loss_pct": 0
+    },
+    {
+      "id": "B",
+      "description": "Turret speed 45 → 35 RPM",
+      "gamp_change_type": "Temporary Change",
+      "risk": "medium",
+      "output_loss_pct": 22,
+      "proposed_turret_speed_rpm": 35,
+      "rollback_review_by": "18:00"
+    },
+    {
+      "id": "C",
+      "description": "Hold batch + inspect compression settings",
+      "gamp_change_type": "Repair",
+      "risk": "low",
+      "output_loss_pct": 100,
+      "changes_specification": false
+    }
+  ]
+}

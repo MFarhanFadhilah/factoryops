@@ -55,8 +55,18 @@ def fixture_5():
     return load_fixture(5)
 
 
+@pytest.fixture
+def fixture_6():
+    return load_fixture(6)
+
+
+@pytest.fixture
+def fixture_7():
+    return load_fixture(7)
+
+
 def test_every_fixture_option_classified_before_rules():
-    for n in (1, 2, 3, 4, 5):
+    for n in (1, 2, 3, 4, 5, 6, 7):
         incident = load_fixture(n)
         for option in incident["options"]:
             change_type = classify(option)
@@ -205,6 +215,36 @@ def test_fixture_5_real_feed_sticking_picking_is_medium_confidence(fixture_5):
     assert fixture_5["confidence"] == "MEDIUM"
     assert fixture_5["prior_similar_incidents"] == 0
     result = evaluate(fixture_5, option_by_id(fixture_5, "C"))
+    assert result["decision"] == "HUMAN_APPROVAL"
+    assert result["required_approvers"] == [ROLE_SUPERVISOR, ROLE_QA]
+    assert result["quality_flag"] is True
+
+
+def test_fixture_6_real_feed_compression_force_is_high_confidence(fixture_6):
+    # Real telemetry/RAG pulled from tools/risk.py, tools/anomaly_rules.py and
+    # tools/rag_search.py against INC-001 — first occurrence on this press, no
+    # prior work order to corroborate, so confidence rests on the sustained
+    # 298s duration and the SOP-named corroborating signs, not history.
+    assert fixture_6["data_source"].startswith("real_feed:")
+    assert fixture_6["confidence"] == "HIGH"
+    assert fixture_6["prior_similar_incidents"] == 0
+    assert "main_compression_force_kn" in limit_violations(fixture_6)
+    assert "tablet_thickness_mm" in limit_violations(fixture_6)
+    result = evaluate(fixture_6, option_by_id(fixture_6, "C"))
+    assert result["decision"] == "HUMAN_APPROVAL"
+    assert result["change_type"] == "Repair"
+    assert result["required_approvers"] == [ROLE_SUPERVISOR, ROLE_QA]
+    assert result["quality_flag"] is True
+
+
+def test_fixture_7_real_feed_weight_variation_is_medium_confidence(fixture_7):
+    # INC-002's deviation was brief (3s sustained) rather than persistent —
+    # confidence must reflect that, same principle as fixture_5's sticking/
+    # picking case: a real signal, but a weaker one than a sustained excursion.
+    assert fixture_7["data_source"].startswith("real_feed:")
+    assert fixture_7["confidence"] == "MEDIUM"
+    assert "tablet_weight_mean_mg" in limit_violations(fixture_7)
+    result = evaluate(fixture_7, option_by_id(fixture_7, "C"))
     assert result["decision"] == "HUMAN_APPROVAL"
     assert result["required_approvers"] == [ROLE_SUPERVISOR, ROLE_QA]
     assert result["quality_flag"] is True

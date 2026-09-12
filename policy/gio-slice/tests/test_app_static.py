@@ -501,15 +501,15 @@ def test_real_feed_fixtures_are_whole_lanes_with_no_stray_tags():
     ).lower()
 
 
-def test_dev_switcher_offers_both_real_feed_fixtures():
+def test_dev_switcher_offers_all_four_real_feed_fixtures():
     # 2 stays out of the switcher on purpose — it proves confidence varies, in
     # the tests, and is not part of the demo path.
-    assert list(FIXTURE_LABELS) == [1, 3, 4, 5]
+    assert list(FIXTURE_LABELS) == [1, 3, 4, 5, 6, 7]
     assert 2 not in FIXTURE_LABELS
     for n, label in FIXTURE_LABELS.items():
         assert label.startswith(f"{n} — ")
-    assert "real feed" in FIXTURE_LABELS[4]
-    assert "real feed" in FIXTURE_LABELS[5]
+    for n in (4, 5, 6, 7):
+        assert "real feed" in FIXTURE_LABELS[n]
 
 
 def test_fixture_3_shells_still_named():
