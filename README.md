@@ -14,7 +14,7 @@ GitHub → Dell GB10 host → local Ollama (chat + embedding) → NemoClaw → O
 |---|---|
 | GitHub | Stores this repo: app code, data, manuals |
 | Ollama | Runs the local chat + embedding models |
-| `qwen3:4b` (🧪 test) / `qwen3:8b` (🏭 competition) | Answers FactoryOps questions |
+| `qwen3:4b` (🧪 test and 🏭 competition) | Answers FactoryOps questions |
 | `nomic-embed-text` (🧪 test) / `mxbai-embed-large` (🏭 competition) | Embeds manuals/repair history for RAG retrieval |
 | NemoClaw | Installer/manager for the agent + sandbox stack |
 | OpenShell | Sandboxes the agent's file/network access |
@@ -103,9 +103,9 @@ model's dir once, per environment:
 
 | | 🧪 Test (laptop) | 🏭 Competition (Dell GB10) |
 |---|---|---|
-| Chat model | `qwen3:4b` | `qwen3:8b` |
+| Chat model | `qwen3:4b` | `qwen3:4b` |
 | Embedding model | `nomic-embed-text` | `mxbai-embed-large` |
-| Merged into | `.../ollama/4b/` | `.../ollama/8b/` |
+| Merged into | `.../ollama/4b/` | `.../ollama/4b/` (same dir — both embeds coexist fine, `models.toml` picks which one is active) |
 
 **🧪 Test (laptop) — load from the kit (same as competition, no `ollama pull`):**
 ```bash
@@ -135,18 +135,23 @@ re-copy it from the source before the competition.
 sudo systemctl stop ollama 2>/dev/null || true
 
 # one-time: merge the embedding model into the chat model's dir
+# (same qwen3:4b dir as test — only the embedding model differs)
 cp -n load/factoryops-kit/model-backup/ollama/embed-mxbai-embed-large/blobs/* \
-      load/factoryops-kit/model-backup/ollama/8b/blobs/
+      load/factoryops-kit/model-backup/ollama/4b/blobs/
 cp -rn load/factoryops-kit/model-backup/ollama/embed-mxbai-embed-large/manifests/registry.ollama.ai/library/mxbai-embed-large \
-       load/factoryops-kit/model-backup/ollama/8b/manifests/registry.ollama.ai/library/
+       load/factoryops-kit/model-backup/ollama/4b/manifests/registry.ollama.ai/library/
 
-export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/8b"
+export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/4b"
 ollama serve &
-ollama list                                                      # expect qwen3:8b + mxbai-embed-large
-ollama run qwen3:8b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
+ollama list                                                      # expect qwen3:4b + mxbai-embed-large (+ nomic-embed-text if you also ran the test step)
+ollama run qwen3:4b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
 curl http://127.0.0.1:11434/api/embed -d '{"model":"mxbai-embed-large","input":"test"}'
 curl http://127.0.0.1:11434/api/tags
 ```
+> ⚠️ **`qwen3:8b` in this kit copy is corrupted, not just slower** — see
+> **Troubleshooting → `qwen3:8b` blob corrupted** below. That's why
+> competition runs `qwen3:4b` + `mxbai-embed-large` here instead of
+> `qwen3:8b` + `mxbai-embed-large`.
 > ⚠️ **Caution:** `ollama serve` is a background server, not a one-shot
 > command — every later step (NemoClaw, OpenClaw, the Streamlit UI, and
 > the live demo itself) talks to it at `127.0.0.1:11434`. Keep this
@@ -162,6 +167,11 @@ data and ignored grounding instructions on a normal/no-anomaly case.
 Use it only for quick iteration on things like prompt wiring or the
 Streamlit UI, never to judge whether an answer is actually correct.
 
+**`qwen3:8b`:** the kit also ships `qwen3:8b` in `.../ollama/8b/`, but
+the copy in this kit is corrupted — see **Troubleshooting → `qwen3:8b`
+blob corrupted** below. Don't use it until you've re-copied and
+verified it from source; that's why competition runs `qwen3:4b` instead.
+
 ### Quick model switch
 
 Re-running the stop/merge/serve steps by hand every time you want to
@@ -172,7 +182,7 @@ repo root:
 cat > switch-model.sh <<'SCRIPT'
 #!/usr/bin/env bash
 # Switch which chat+embedding pair is loaded from factoryops-kit.
-# Usage: ./switch-model.sh [status | 1.7b | 4b | 8b]
+# Usage: ./switch-model.sh [status | 1.7b | 4b | comp]
 #   status (or no argument) reports which model is actually in use —
 #   run this first if you're not sure what's active right now.
 set -euo pipefail
@@ -196,7 +206,7 @@ if [ "$MODEL" = "status" ]; then
     echo "-- models.toml (what app/tools code should be reading) --"
     cat "$(pwd)/models.toml"
   else
-    echo "-- no models.toml yet — run ./switch-model.sh 4b|1.7b|8b once to create it --"
+    echo "-- no models.toml yet — run ./switch-model.sh 4b|1.7b|comp once to create it --"
   fi
   exit 0
 fi
@@ -204,12 +214,16 @@ fi
 KIT="$(pwd)/load/factoryops-kit/model-backup/ollama"
 
 case "$MODEL" in
-  1.7b|4b) CHAT="qwen3:$MODEL"; EMBED="nomic-embed-text";   EMBED_DIR="embed-nomic-embed-text" ;;
-  8b)      CHAT="qwen3:8b";     EMBED="mxbai-embed-large";  EMBED_DIR="embed-mxbai-embed-large" ;;
-  *) echo "Unknown model '$MODEL' — expected status, 1.7b, 4b, or 8b" >&2; exit 1 ;;
+  1.7b) CHAT="qwen3:1.7b"; EMBED="nomic-embed-text";  EMBED_DIR="embed-nomic-embed-text";  TARGET_DIR="1.7b" ;;
+  4b)   CHAT="qwen3:4b";   EMBED="nomic-embed-text";  EMBED_DIR="embed-nomic-embed-text";  TARGET_DIR="4b" ;;
+  comp) CHAT="qwen3:4b";   EMBED="mxbai-embed-large"; EMBED_DIR="embed-mxbai-embed-large"; TARGET_DIR="4b" ;;
+  *) echo "Unknown model '$MODEL' — expected status, 1.7b, 4b, or comp" >&2; exit 1 ;;
 esac
+# note: 4b and comp share TARGET_DIR="4b" — same qwen3:4b chat weights,
+# only the merged-in embedding model differs. qwen3:8b is dropped here;
+# the copy in this kit is corrupted (see Troubleshooting).
 
-TARGET="$KIT/$MODEL"
+TARGET="$KIT/$TARGET_DIR"
 [ -d "$TARGET" ] || { echo "Missing $TARGET — is factoryops-kit pasted into load/?" >&2; exit 1; }
 
 echo "== stopping any running ollama server =="
@@ -217,7 +231,7 @@ sudo systemctl stop ollama 2>/dev/null || true
 pkill -f "ollama serve" 2>/dev/null || true
 sleep 1
 
-echo "== merging $EMBED into $MODEL (idempotent — skips files already there) =="
+echo "== merging $EMBED into $TARGET_DIR (idempotent — skips files already there) =="
 cp -n "$KIT/$EMBED_DIR/blobs/"* "$TARGET/blobs/"
 mkdir -p "$TARGET/manifests/registry.ollama.ai/library"
 cp -rn "$KIT/$EMBED_DIR/manifests/registry.ollama.ai/library/$EMBED" \
@@ -243,7 +257,7 @@ cat > "$(pwd)/models.toml" <<TOML
 [active]
 chat_model = "$CHAT"
 embed_model = "$EMBED"
-kit_dir = "$MODEL"
+kit_dir = "$TARGET_DIR"
 ollama_host = "127.0.0.1:11434"
 
 [pairs.4b]
@@ -254,8 +268,8 @@ embed_model = "nomic-embed-text"
 chat_model = "qwen3:1.7b"
 embed_model = "nomic-embed-text"
 
-[pairs.8b]
-chat_model = "qwen3:8b"
+[pairs.comp]
+chat_model = "qwen3:4b"
 embed_model = "mxbai-embed-large"
 TOML
 
@@ -273,7 +287,7 @@ Then switching is one line:
 ```bash
 ./switch-model.sh 4b     # test default
 ./switch-model.sh 1.7b   # faster, but known to hallucinate — quick iteration only, don't trust output
-./switch-model.sh 8b     # competition pairing
+./switch-model.sh comp   # competition pairing — same qwen3:4b chat model, mxbai-embed-large instead of nomic
 ```
 `ollama serve` still runs as a plain background process here (not the
 systemd service) — the same caution above applies: keep the shell open,
@@ -311,8 +325,11 @@ matters here since the Dell has no internet during the live demo.
 > ```
 > This deletes and recreates the sandbox container in place, so don't
 > do it just to experiment — only once you're actually locking in a
-> different chat model. Switching only the **embedding** model
-> (`nomic-embed-text` ↔ `mxbai-embed-large`) needs no re-onboard —
+> different chat model. This only matters if you flip to `qwen3:1.7b` —
+> `./switch-model.sh 4b` and `./switch-model.sh comp` both run
+> `qwen3:4b`, so moving between test and competition needs no
+> re-onboard. Switching only the **embedding** model
+> (`nomic-embed-text` ↔ `mxbai-embed-large`) never needs one either —
 > NemoClaw/OpenClaw's config doesn't reference it; your own RAG code
 > calls it directly via `/api/embed`.
 
@@ -368,7 +385,7 @@ Answering **n** drops straight into onboarding, which then runs
 ```text
 Select agent runtime      → 1) OpenClaw
 Select inference provider → 8) Local Ollama
-Select model               → qwen3:4b (🧪 test) / qwen3:8b (🏭 competition)
+Select model               → qwen3:4b (🧪 test and 🏭 competition)
 Sandbox name                → factoryops
 Apply configuration          → 1)
 Web search                    → 1) No web search
@@ -417,7 +434,7 @@ Expected settings:
 Agent runtime:          OpenClaw
 Sandbox name:           factoryops
 Inference provider:     Local Ollama
-Model:                  qwen3:4b (🧪 test) / qwen3:8b (🏭 competition)
+Model:                  qwen3:4b (🧪 test and 🏭 competition)
 Project host folder:    $PROJECT_DIR
 Sandbox project folder: /sandbox/factoryops
 Project mount mode:     Read-only
@@ -529,12 +546,12 @@ _CONFIG = _ROOT / "models.toml"
 
 def _active() -> dict:
     if not _CONFIG.exists():
-        raise RuntimeError("models.toml not found — run ./switch-model.sh 4b|1.7b|8b once first")
+        raise RuntimeError("models.toml not found — run ./switch-model.sh 4b|1.7b|comp once first")
     return toml.load(_CONFIG)["active"]
 
 
 def chat(prompt: str, system: str | None = None) -> str:
-    """Reasoning/generation — active.chat_model (qwen3:4b/1.7b/8b)."""
+    """Reasoning/generation — active.chat_model (qwen3:4b or qwen3:1.7b)."""
     active = _active()
     messages = ([{"role": "system", "content": system}] if system else []) + [
         {"role": "user", "content": prompt}
@@ -697,10 +714,11 @@ Push only if network access and rules allow it.
 ## Troubleshooting
 
 - **Model missing / Ollama not running** → redo Step 3. Competition: re-copy `load/factoryops-kit/model-backup/ollama`. Never `ollama pull` as a workaround on the Dell.
+- **`qwen3:8b` blob corrupted in this kit copy (`Error: EOF` from `ollama run qwen3:8b`, and even from `curl .../api/show`)** → verified directly: the main weights blob was truncated (~3.9 GB on disk vs ~5.2 GB expected per the manifest) and the template/license/params blobs were all 0 bytes. `qwen3:4b`, `qwen3:1.7b`, `nomic-embed-text`, and `mxbai-embed-large` all check out fine — their blob sizes match their manifests exactly. Only the `8b` chat weights are bad in this copy. This is why competition runs `qwen3:4b` + `mxbai-embed-large` instead of `qwen3:8b` + `mxbai-embed-large` (Step 3). If you later obtain a fresh `qwen3:8b` copy, verify its blob sizes against `manifests/registry.ollama.ai/library/qwen3/8b` before trusting it — don't assume a re-copy fixed it without checking.
 - **Small model hallucinates facts not in the local files, especially on a "nothing abnormal" case** → observed with `qwen3:1.7b` during early testing (this is why the test default is `qwen3:4b`, not `1.7b`): asked to investigate a genuinely normal telemetry window, it invented a fake anomaly with units/thresholds that don't exist anywhere in the project (`"1200 psi vs. 1150-1250 psi"` — nothing in this project is measured in psi) and recommended stopping production. It ignored "use only local files" entirely and answered from generic training knowledge instead of reading the CSV. This is a real reliability gap, not a one-off:
   - Don't trust a model's prose claim by itself — cross-check against the deterministic tool output (e.g. `evaluate_anomaly_rules`/`calculate_production_risk` in `secret-folder/tools/`) before accepting a demo answer as correct.
-  - Re-test every scenario (especially the normal/no-anomaly case) against the competition's actual `qwen3:8b` + `mxbai-embed-large` pairing before relying on `qwen3:4b` + `nomic-embed-text` results for the live demo. Smaller models are more prone to ignoring grounding instructions and inventing plausible-sounding but fabricated evidence — if you fall back to `1.7b` for quick iteration, re-verify anything it says before trusting it.
-  - If it recurs on a larger model too, that's a prompt/skill-file problem (the "never invent facts absent from local files" rule needs to be stated more forcefully or earlier in context), not just a model-size problem.
+  - Competition and test now both run `qwen3:4b` (no bigger model to fall back on for cross-verification), so re-test every scenario — especially the normal/no-anomaly case — against the exact `qwen3:4b` + `mxbai-embed-large` competition pairing before the live demo, not just `qwen3:4b` + `nomic-embed-text`. Smaller models are more prone to ignoring grounding instructions and inventing plausible-sounding but fabricated evidence — if you fall back to `1.7b` for quick iteration, re-verify anything it says before trusting it.
+  - If it recurs on the competition pairing too, that's a prompt/skill-file problem (the "never invent facts absent from local files" rule needs to be stated more forcefully or earlier in context), not just a model-size problem.
 - **Docker permission error** → `sudo usermod -aG docker "$USER" && newgrp docker`
 - **`/sandbox/factoryops` missing (`/sandbox` exists but is otherwise empty)** → NemoClaw never mounts the project folder on its own — there's no wizard prompt for it, and setting `PROJECT_DIR` alone does nothing. The only way to attach your repo is the `--host-mount <host:/sandbox/path>` flag on `nemoclaw onboard` (confirmed via `nemoclaw onboard --help`), which the auto-chained wizard from the installer never passes. Fix in place, no NemoClaw reinstall needed:
   ```bash
@@ -771,7 +789,7 @@ Push only if network access and rules allow it.
 **🏭 Competition (Dell GB10)**
 ```text
 [ ] load/factoryops-kit/ pasted in
-[ ] ollama serve runs against load/factoryops-kit/model-backup/ollama/8b, ollama list shows qwen3:8b + mxbai-embed-large
+[ ] ollama serve runs against load/factoryops-kit/model-backup/ollama/4b, ollama list shows qwen3:4b + mxbai-embed-large
 [ ] NemoClaw sandbox onboarded and healthy, /sandbox/factoryops mounted read-only
 [ ] OpenClaw answers the M4-E17 scenario, citing local files + LOTO step
 [ ] Streamlit UI runs at localhost:8501
@@ -784,7 +802,8 @@ Push only if network access and rules allow it.
 
 **One-sentence summary:** clone FactoryOps, paste `factoryops-kit` into
 `load/` and load `qwen3:4b` + `nomic-embed-text` from it on your
-laptop to test, then do the same with `qwen3:8b` + `mxbai-embed-large`
-on the Dell for the event — everything else (NemoClaw onboard,
-sandbox verify, OpenClaw test, Streamlit UI) is identical in both
-modes, with network cut only for the live demo.
+laptop to test, then merge in `mxbai-embed-large` instead of
+`nomic-embed-text` (same `qwen3:4b` chat model, same kit dir) on the
+Dell for the event — everything else (NemoClaw onboard, sandbox
+verify, OpenClaw test, Streamlit UI) is identical in both modes, with
+network cut only for the live demo.
