@@ -1,0 +1,63 @@
+{
+  "incident_id": "TP-04-0912-AMB",
+  "machine_id": "TP-04",
+  "machine_type": "Rotary Tablet Press",
+  "batch_id": "BATCH-2026-0912-07",
+  "product": "500 mg tablet",
+  "labeled_weight_mg": 500,
+  "timestamp": "2026-09-12T14:00:00",
+  "data_source": "simulated",
+  "turret_speed_rpm": 46,
+  "main_compression_force_kn": 48.0,
+  "precompression_force_kn": 26.0,
+  "tablet_weight_mean_mg": 540,
+  "tablet_weight_rsd_pct": 2.1,
+  "vibration_mm_s": 4.8,
+  "motor_temperature_c": 68,
+  "alarm_code": "TP-WT-DRIFT",
+  "max_vibration_mm_s": 6.0,
+  "max_motor_temperature_c": 75,
+  "tablet_weight_tolerance_pct": 5,
+  "qualified_speed_range_rpm": [30, 50],
+  "last_bearing_inspection_days": 40,
+  "prior_similar_incidents": 0,
+  "prior_outcomes": [],
+  "mean_hours_to_forced_shutdown": 4,
+  "tablets_per_hour": 180000,
+  "contribution_margin_per_1000": 35,
+  "retrieved": [],
+  "likely_cause": null,
+  "confidence": "LOW",
+  "confidence_basis": [
+    "tablet weight mean 540 mg outside labeled 500 mg ± 5%",
+    "vibration and motor temperature inside approved limits",
+    "no matching prior incidents",
+    "retrieval returned nothing"
+  ],
+  "options": [
+    {
+      "id": "A",
+      "description": "Continue operation",
+      "gamp_change_type": "Deviation",
+      "risk": "high",
+      "output_loss_pct": 0
+    },
+    {
+      "id": "B",
+      "description": "Turret speed 46 → 35 RPM",
+      "gamp_change_type": "Temporary Change",
+      "risk": "medium",
+      "output_loss_pct": 24,
+      "proposed_turret_speed_rpm": 35,
+      "rollback_review_by": "18:00"
+    },
+    {
+      "id": "C",
+      "description": "Controlled shutdown + inspection",
+      "gamp_change_type": "Repair",
+      "risk": "low",
+      "output_loss_pct": 100,
+      "changes_specification": false
+    }
+  ]
+}
