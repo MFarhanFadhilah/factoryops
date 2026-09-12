@@ -34,7 +34,8 @@ FIELDS = [
     "timestamp", "machine_id", "batch_id",
     "main_compression_force_kn", "precompression_force_kn", "ejection_force_kn",
     "tablet_weight_mg", "turret_speed_rpm", "feeder_speed_rpm",
-    "vibration_rms_mm_s", "bearing_temp_c", "reject_flag",
+    "vibration_rms_mm_s", "bearing_temp_c",
+    "tablet_hardness_kp", "tablet_thickness_mm", "reject_flag",
 ]
 
 
@@ -75,11 +76,18 @@ def generate(out_path):
             bearing = random.gauss(33.0, 0.7)
             reject = 1
 
+        # tablet_hardness_kp: baseline ~12.0 kp at 18.0 kN force, slope ~0.7 kp/kN, sigma ~0.3
+        hardness = 12.0 + 0.7 * (force - 18.0) + random.gauss(0.0, 0.3)
+
+        # tablet_thickness_mm: baseline ~4.50 mm at 18.0 kN force, slope ~-0.04 mm/kN, sigma ~0.02
+        thickness = 4.50 - 0.04 * (force - 18.0) + random.gauss(0.0, 0.02)
+
         rows.append([
             ts.isoformat(), MACHINE, BATCH,
             round(force, 3), round(precompression, 3), round(eject, 3),
             round(weight, 3), round(turret, 3), round(feeder, 3),
-            round(vibration, 3), round(bearing, 3), reject,
+            round(vibration, 3), round(bearing, 3),
+            round(hardness, 3), round(thickness, 3), reject,
         ])
 
     with open(out_path, "w", newline="") as f:

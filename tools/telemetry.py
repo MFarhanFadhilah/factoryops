@@ -19,6 +19,8 @@ _NUMERIC_FIELDS = (
     "feeder_speed_rpm",
     "vibration_rms_mm_s",
     "bearing_temp_c",
+    "tablet_hardness_kp",
+    "tablet_thickness_mm",
     "production_risk_score",
 )
 
