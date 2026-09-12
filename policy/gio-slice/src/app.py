@@ -48,6 +48,13 @@ section[data-testid="stSidebar"] .stButton > button {
   padding: 7px 16px 7px 13px; width: 100%;
 }
 section[data-testid="stSidebar"] .stButton > button:hover { background: #f3f4f6; color: #374151; }
+/* st.radio's own text has no color rule anywhere in this file, so it falls
+   back to Streamlit's theme default — white when the viewer's browser/OS
+   prefers dark mode. Every background here is forced light, so that default
+   renders invisible. Covers both radios: the sidebar fixture switcher and
+   the main-panel "Acting as" control. */
+div[data-testid="stRadio"] label p,
+div[data-testid="stRadio"] label span { color: #374151; }
 .sidenav-brand { font-size: 14px; font-weight: 700; letter-spacing: 0.05em;
   text-transform: uppercase; color: #00447C; padding: 4px 4px 12px; }
 .sidenav-group { font-size: 12px; font-weight: 700; letter-spacing: 0.05em;
