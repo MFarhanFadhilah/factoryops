@@ -24,15 +24,14 @@ GitHub → Dell GB10 host → local Ollama (qwen3:4b) → NemoClaw → OpenShell
 
 | | 🧪 Test (your laptop) | 🏭 Competition (Dell GB10) |
 |---|---|---|
-| Goal | Validate the whole pipeline before the event | Actual event run |
-| Model source | `ollama pull qwen3:4b` — internet OK | `load/factoryops-kit/model-backup/ollama/` only — **never** `ollama pull` |
+| Goal | Validate the pipeline before the event | Actual event run |
+| Model source | `load/factoryops-kit/model-backup/ollama/` — same as competition, never `ollama pull` | `load/factoryops-kit/model-backup/ollama/` only — **never** `ollama pull` |
 | Network | On | On during setup, **off for the live demo** |
 
-Everything else (NemoClaw, sandbox, OpenClaw, UI, test prompts) is
-identical in both modes — only **Steps 2–3** (prerequisites, getting
-the model) differ. Test mode also lets you mount `factoryops-kit` on
-your laptop first, to confirm the copy you're carrying to the
-competition isn't corrupt. Commands below are run from the repo root.
+Steps are identical in both modes — Test just runs the same
+`factoryops-kit` load on your laptop first, to confirm the copy is
+good before you bring it to the event. Commands below run from the
+repo root.
 
 ## Repo structure
 
@@ -55,47 +54,21 @@ cd factoryops
 ```
 
 **🏭 Competition (required):** copy `factoryops-kit` from your flashdisk
-into `load/` (paste, no command needed) → `load/factoryops-kit/`.
-Gitignored, so re-paste it on every fresh clone.
+into `load/` → `load/factoryops-kit/`. Gitignored — re-paste on every fresh clone.
 
-**🧪 Test (optional but recommended):** paste the same `factoryops-kit`
-into `load/` on your laptop too, so Step 3 can verify it isn't corrupt
-before you bring it to the event.
+**🧪 Test (required too):** paste the same `factoryops-kit` into `load/`
+on your laptop — Step 3 loads the model from it, same as the competition,
+and this also lets you confirm the copy isn't corrupt before the event.
 
 ## 2. Check prerequisites
 
-### Is the Dell GB10 plain Linux?
+The Dell GB10 runs **DGX OS** (native Ubuntu, not WSL) with NVIDIA
+driver/CUDA preinstalled. It normally lacks Docker-for-your-user,
+Node/npm, Ollama, and NemoClaw — check and install those yourself.
+Always check first; organizers may have customized the image.
 
-Yes. Dell Pro Max with GB10 is an NVIDIA GB10 (Grace Blackwell) system
-running **DGX OS** — a native Ubuntu-based Linux, not WSL. Out of the
-box it already has: NVIDIA driver + CUDA, and the NVIDIA AI stack
-(NemoClaw installs cleanly on top of it). It normally does **not**
-already have: Docker set up for your user, Node.js/npm, Ollama, or
-NemoClaw itself — install/verify those yourself below. Always run the
-checks first since organizers may have customized the image.
-
-**🧪 Test (laptop):**
 ```bash
-docker --version && docker info >/dev/null && echo "DOCKER READY" || echo "DOCKER MISSING"
-node --version || echo "NODE MISSING"
-npm --version || echo "NPM MISSING"
-nvidia-smi || echo "NO GPU — ollama will run on CPU (slower, fine for testing)"
-df -h ~
-```
-If missing, install:
-```bash
-# Docker
-curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker "$USER" && newgrp docker
-# Node.js/npm (LTS)
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs
-```
-No GPU on your laptop is fine for testing — it just runs slower. Have
-a GPU? `nvidia-smi` should list it, and Ollama uses it automatically
-for faster inference — no extra config needed.
-
-**🏭 Dell GB10:**
-```bash
-nvidia-smi
+nvidia-smi || echo "NO GPU — fine for laptop testing (CPU, slower); required on the Dell"
 docker --version && docker info >/dev/null && echo "DOCKER READY" || echo "DOCKER MISSING"
 node --version || echo "NODE MISSING"
 npm --version || echo "NPM MISSING"
@@ -103,47 +76,28 @@ df -h ~
 ```
 If missing, install:
 ```bash
-# Docker
 curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker "$USER" && newgrp docker
-# Node.js/npm (LTS)
 curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs
 ```
-`nvidia-smi` failing on the Dell is unusual (driver ships preinstalled)
-— don't try to reinstall/upgrade the driver yourself, ask a mentor first.
-Don't change NVIDIA driver/Docker/network policy without a mentor's OK.
+Dell: `nvidia-smi` failing is unusual (driver ships preinstalled) —
+don't reinstall/upgrade the driver yourself, ask a mentor. Don't
+change NVIDIA driver/Docker/network policy without a mentor's OK.
 
 ## 3. Get the model
 
-**🧪 Test (laptop) — normal pull:**
+Check first:
+```bash
+command -v ollama >/dev/null 2>&1 && ollama --version || echo "OLLAMA NOT INSTALLED"
+```
+Install if missing:
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
-ollama serve &
-ollama pull qwen3:4b
-ollama run qwen3:4b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
-curl http://127.0.0.1:11434/api/tags
 ```
 
-**🧪 Test (laptop) — verify `factoryops-kit` isn't corrupt (recommended before the event):**
-Paste `factoryops-kit` into `load/` on your laptop too (same as Step 1's
-competition instruction), then point Ollama at it exactly like the Dell
-will, to prove the copy is good before you travel with it:
+**🧪 Test (laptop) — load from the kit (same as competition, no `ollama pull`):**
 ```bash
 sha256sum load/factoryops-kit/model-backup/llamafile/Qwen3.5-0.8B-Q8_0.llamafile
 # expect: ec7c3ab7903accb1b4d890cfd1fc670fabc642dcb4896735bd69d46b2629408d
-sudo systemctl stop ollama 2>/dev/null || true
-export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/4b"
-ollama serve &
-ollama list                                                      # should list qwen3:4b, no errors
-ollama run qwen3:4b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
-curl http://127.0.0.1:11434/api/tags
-```
-If any of these fail or hang (missing manifest, checksum mismatch,
-`ollama list` errors), the kit copy is corrupt or incomplete — re-copy
-`factoryops-kit` from the source before the competition.
-
-**🏭 Competition (Dell GB10):**
-```bash
-curl -fsSL https://ollama.com/install.sh | sh   # only if not already installed
 sudo systemctl stop ollama 2>/dev/null || true
 export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/4b"
 ollama serve &
@@ -151,120 +105,128 @@ ollama list
 ollama run qwen3:4b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
 curl http://127.0.0.1:11434/api/tags
 ```
-Never run `ollama pull` on the Dell. Leave `ollama serve` running for
-the rest of setup.
+If `ollama list` errors or the checksum mismatches, the `factoryops-kit`
+copy is corrupt or incomplete — re-copy it from the source before the
+competition.
 
-8B backup: stop the server, `export OLLAMA_MODELS=".../ollama/8b"`,
-`ollama serve` again, then `ollama run qwen3:8b` (copy `blobs/` +
-`manifests/` into `.../ollama/8b/` first — kit ships the 4B only).
+**🏭 Competition (Dell GB10) — load from the kit, never pull:**
+```bash
+sudo systemctl stop ollama 2>/dev/null || true
+export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/4b"
+ollama serve &
+ollama list
+ollama run qwen3:4b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
+curl http://127.0.0.1:11434/api/tags
+```
+> ⚠️ **Caution:** `ollama serve` is a background server, not a one-shot
+> command — every later step (NemoClaw, OpenClaw, the Streamlit UI, and
+> the live demo itself) talks to it at `127.0.0.1:11434`. Keep this
+> shell/session open and don't kill this process from here through
+> Step 8 and the demo. If it ever stops (closed terminal, reboot,
+> `pkill ollama`), every downstream step will fail with a connection
+> error until you run `ollama serve &` again.
 
-Fallback if Ollama can't run at all (llamafile, portable — runs on
-x86_64 and ARM64 unmodified):
+**8B backup:** stop the server, `export OLLAMA_MODELS=".../ollama/8b"`,
+`ollama serve` again, `ollama run qwen3:8b` (copy `blobs/` + `manifests/`
+into `.../ollama/8b/` first — kit ships the 4B only).
+
+**Fallback if Ollama can't run at all** (llamafile, portable, x86_64/ARM64):
 ```bash
 LLAMAFILE="$(pwd)/load/factoryops-kit/model-backup/llamafile/Qwen3.5-0.8B-Q8_0.llamafile"
-sha256sum "$LLAMAFILE"   # ec7c3ab7903accb1b4d890cfd1fc670fabc642dcb4896735bd69d46b2629408d
 chmod +x "$LLAMAFILE" && "$LLAMAFILE" --server --nobrowser   # OpenAI-compatible API on :8080
 ```
 
-## 4. Install NemoClaw (both modes — command is identical, caveat differs)
+## 4. Install NemoClaw
 
-**Start clean, every time.** Any prior attempt (even a failed one) can leave
-a stuck sandbox registry entry that makes a fresh install fail in confusing
-ways. Wipe first, before installing anything:
+Check first, both modes:
+```bash
+command -v nemoclaw >/dev/null 2>&1 && nemoclaw --version || echo "NEMOCLAW NOT INSTALLED"
+```
+
+**Start clean, every time** — just in case (jaga-jaga): a stuck sandbox
+registry entry from a prior attempt, even a failed one, breaks a fresh
+install in confusing ways. Wipe before installing anything, even if
+the check above said not installed:
 ```bash
 docker rm -f $(docker ps -aq --filter name=factoryops) 2>/dev/null
 rm -rf ~/.nemoclaw-portable-host.lock
 command -v nemoclaw >/dev/null 2>&1 && nemoclaw uninstall --yes --destroy-user-data
 docker system prune -a --volumes -f
 ```
-
-Set the project folder *before* installing — the installer chains straight
-into the onboarding wizard below, so this must already be exported when it
-asks for "Project host folder":
+Set the project folder *before* installing — note this is just a
+shell variable for the command below, **not** something NemoClaw reads
+automatically:
 ```bash
 PROJECT_DIR="$(pwd -P)"
+```
+**🧪 Test on WSL2 + Docker Desktop only:** GPU passthrough reliably
+fails there during onboarding (`Docker GPU patch failed`). CPU
+inference is fine for testing, so disable it up front:
+```bash
+export NEMOCLAW_SANDBOX_GPU=0
+```
+**🏭 Competition:** leave GPU passthrough enabled, don't set that variable.
+
+Install if missing:
+```bash
 curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash
+```
+Two prompts come up during install:
+- License agreement → answer **y**
+- `Run express install with these settings? [Y/n]` → answer **n** —
+  express "balanced" opens npm/pypi/huggingface/brew access and web
+  search, which conflicts with the Restricted policy below
+
+Answering **n** drops straight into onboarding, which then runs
+**automatically** — answer each prompt as it appears, in this order:
+```text
+Select agent runtime      → 1) OpenClaw
+Select inference provider → 8) Local Ollama
+Select model               → qwen3:4b
+Sandbox name                → factoryops
+Apply configuration          → 1)
+Web search                    → 1) No web search
+Messaging channel              → none selected — skip
+Resource profile                 → 4) Developer
+Policy tier                       → Restricted (not the pre-highlighted Balanced)
+Policy presets                      → keep only local-inference, uncheck the rest
+```
+Interrupted onboarding: `nemoclaw onboard --resume`. Unexpected sudo
+prompt or wizard auto-starting on its own: Ctrl+C, check
+`ps aux | grep nemoclaw` for a stray process before retrying.
+
+> ⚠️ **This auto-chained wizard never mounts your project folder** —
+> there is no prompt for it, and `PROJECT_DIR` is not read
+> automatically. The only way to attach it is the `--host-mount` flag,
+> which you pass by re-running onboarding explicitly right after,
+> recreating the sandbox in place:
+> ```bash
+> nemoclaw onboard --name factoryops --recreate-sandbox \
+>   --host-mount "$PROJECT_DIR:/sandbox/factoryops"
+> ```
+> This re-runs the same prompts above (still pick Restricted, etc.) but
+> now actually binds your repo. Skipping this step is why `/sandbox`
+> comes up empty in Step 5.
+
+**🧪 WSL2:** if sandbox creation fails with `Docker GPU patch failed`
+right after CUDA proof, you skipped the `NEMOCLAW_SANDBOX_GPU=0`
+export above — go back, export it, redo onboarding. Don't retry the
+same way.
+
+Piped/automated input can auto-advance past the Policy tier/presets
+screen before a keypress registers, landing on Balanced instead of
+Restricted — see **Troubleshooting → Policy tier ended up Balanced**
+below if that happens.
+
+Once onboarding finishes:
+```bash
 source ~/.bashrc
 nemoclaw --version
 nemoclaw agents list      # OpenClaw should be listed
 nemoclaw host probe
 ```
-Interrupted onboarding: `nemoclaw onboard --resume`. If install starts an
-onboarding wizard on its own instead of just installing, or asks for a sudo
-password unexpectedly, Ctrl+C and check `ps aux | grep nemoclaw` for a
-stray process before retrying.
 
-**🧪 Test (laptop, especially WSL2 + Docker Desktop): disable GPU passthrough
-before installing.** Docker Desktop's WSL2 backend doesn't support NemoClaw's
-native GPU passthrough — it falls back to a `--gpus` Docker-compatibility
-patch, and that patch reliably fails during onboarding on this host type.
-Symptom: onboarding gets through sandbox creation and CUDA proof, then dies
-with `Docker GPU patch failed` / `Error: GPU sandbox local inference
-reachability failed for https://inference.local/v1/models`, leaving a
-retained sandbox stuck in `Provisioning`/`Error` phase that `nemoclaw
-<name> destroy` will keep refusing to delete (it's a real, deterministic
-failure, not flaky — retrying the same way won't help). This has nothing to
-do with the model or DNS. Since CPU-only inference is already fine for
-laptop testing (Step 2), just skip GPU passthrough entirely:
-```bash
-export NEMOCLAW_SANDBOX_GPU=0
-```
-run this in the same shell right before the `curl | bash` line above. Confirm
-it took during onboarding's preflight: look for `✓ Sandbox GPU: disabled by
-configuration` (not `enabled (auto)`). If you already hit the failure before
-reading this, recover with the clean-start block above, then retry with the
-variable exported. See **Troubleshooting → Docker GPU patch failed** below.
-
-**🏭 Competition (Dell GB10):** DGX OS runs Docker natively on Linux (no
-Docker Desktop compatibility layer), so this GPU-patch failure is not
-expected — leave GPU passthrough enabled and don't set `NEMOCLAW_SANDBOX_GPU`.
-Still run `nemoclaw host probe` after install to confirm. If you do see the
-same `Docker GPU patch failed` error on the Dell, treat it as a real anomaly
-worth flagging to a mentor rather than applying the WSL2 workaround.
-
-If prompted `Run express install with these settings? [Y/n]`, answer **n** —
-express mode's "balanced" tier enables npm/pypi/huggingface/brew access and a
-web-search preset, which conflicts with the wizard answers in Step 5 (no web
-search, local-only network). Answering `n` is expected and correct: it drops
-you straight into the manual, prompt-by-prompt wizard from Step 5 — there is
-no separate "just install, nothing else" path, so proceed directly into it.
-
-## 5. Create the sandbox: NemoClaw + OpenShell + OpenClaw (both modes)
-
-The wizard from Step 4 continues here automatically — you don't run a
-separate command unless it didn't start (then run `nemoclaw onboard`
-yourself; `$PROJECT_DIR` is already set from Step 4). Answer each prompt as
-it appears, in order, starting with agent selection (`1) OpenClaw`):
-
-**🧪 Test (laptop, WSL2):** this is the step where the Step 4 GPU-patch
-issue actually surfaces if you skipped the `NEMOCLAW_SANDBOX_GPU=0` export —
-sandbox creation can get all the way through CUDA proof, then fail with
-`Docker GPU patch failed` and land in `Phase: Error`/`Provisioning` a few
-seconds later. If that happens, don't retry the same way — go back to Step
-4's clean-start block, export the variable, and redo onboarding.
-
-At the **[8/8] Policy presets** step, pick **Restricted**, not the
-pre-highlighted **Balanced** — Balanced opens real internet egress
-(`npm`, `pypi`, `huggingface`, `brew` registries) that conflicts with the
-project's local-only rule. If your input is piped (e.g. through an
-automation/agent) the wizard can auto-advance past this screen on the
-Balanced default before a keypress registers; if that happens, trim it down
-afterwards instead of re-onboarding:
-```bash
-nemoclaw factoryops policy list                          # see what's applied
-for p in brew huggingface npm pypi openclaw-pricing; do
-  nemoclaw factoryops policy remove "$p" --yes
-done
-```
-Keep `local-inference` — the sandbox needs it to reach your local Ollama.
-This only restricts what the OpenClaw agent process *inside the sandbox*
-can reach; it doesn't affect building the app itself (see Step 10 — you
-edit and `pip install` on the host, not inside the sandbox).
-
-**🏭 Competition (Dell GB10):** expect this step to complete cleanly in one
-pass on native Linux. If you do see the same `Phase: Error` /
-`inference.local` reachability failure here, treat it as a real anomaly
-worth flagging to a mentor rather than the known WSL2 quirk.
+Expected settings:
 ```text
 Agent runtime:          OpenClaw
 Sandbox name:           factoryops
@@ -279,13 +241,30 @@ External API keys:      None
 Network policy:         Local-only / deny Internet
 ```
 
-## 6. Verify the sandbox and repo mount (both modes)
+## 5. Verify the sandbox and repo mount
 
 ```bash
 nemoclaw factoryops status
 nemoclaw factoryops connect
 ```
-Inside the sandbox:
+**If either fails:**
+```bash
+nemoclaw host probe             # host/sandbox health
+docker ps -a                    # check for a crash-looping container
+docker logs <container>         # see the actual failure
+```
+Then confirm `PROJECT_DIR="$(pwd -P)"` is absolute and re-run
+`nemoclaw onboard` (or `--resume` if interrupted). If status shows
+`Phase: Error` or the container keeps crash-looping, **don't**
+repeatedly retry `nemoclaw <name> destroy` — a crash-looping container
+never reaches a state NemoClaw can confirm absent, so `destroy` will
+keep refusing with an identity-conflict error. Instead: `nemoclaw
+uninstall`, then reinstall from Step 4.
+
+Inside the sandbox — `pwd` right after connecting prints `/sandbox`
+(the container's default working dir), but your project only shows up
+under `/sandbox/factoryops` if onboarding was run with `--host-mount`
+(see Step 4's warning above):
 ```bash
 pwd && ls -la /sandbox/factoryops
 head -n 5 /sandbox/factoryops/data/repair_history.csv
@@ -293,19 +272,12 @@ cat /sandbox/factoryops/manuals/lockout_tagout_sop.md
 awk '$2 == "/sandbox/factoryops" { print $2, $4 }' /proc/mounts   # expect "ro"
 exit
 ```
-Not visible? Confirm `PROJECT_DIR="$(pwd -P)"` is absolute, re-run `nemoclaw onboard`.
+If `/sandbox/factoryops` doesn't exist but `/sandbox` itself does,
+that's not a broken sandbox — it means onboarding ran without
+`--host-mount`. See **Troubleshooting → `/sandbox/factoryops` missing**
+below.
 
-If sandbox creation instead reports "reached Ready before OpenShell returned
-one exact durable create identity" or the container keeps restarting, **stop**
-— don't repeatedly retry `nemoclaw <name> destroy`. A crash-looping container
-never reaches a state NemoClaw can confirm as absent, so destroy will keep
-refusing with an "identity conflict" error and repeated attempts won't fix it.
-Instead: `docker ps -a` to confirm the container is crash-looping, check
-`docker logs <container>` for the actual failure (often the corrupted-image
-issue in Step 4), then `nemoclaw uninstall` and reinstall from Step 4 rather
-than hand-editing `~/.nemoclaw/*.json`.
-
-## 7. Test OpenClaw (both modes)
+## 6. Test OpenClaw
 
 ```bash
 nemoclaw factoryops connect
@@ -335,10 +307,10 @@ For fault code M4-E17:
 5. Do not use the internet.
 6. Do not invent facts absent from local files.
 ```
-A good answer cites the local files, applies the LOTO step before any
-inspection instruction, and invents nothing. Exit: `/exit`, then `exit`.
+Good answer: cites local files, applies the LOTO step before any
+inspection instruction, invents nothing. Exit: `/exit`, then `exit`.
 
-## 8. Build app/tools (once, before Step 9)
+## 7. Build app/tools (once, before Step 8)
 
 `app/` and `tools/` ship empty. Create:
 ```text
@@ -353,7 +325,7 @@ touch app/main.py app/local_llm.py app/retrieval.py \
 rm -f app/.gitkeep tools/.gitkeep
 ```
 
-## 9. Run the UI (both modes)
+## 8. Run the UI
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -362,7 +334,7 @@ streamlit run app/main.py --server.address 0.0.0.0 --server.port 8501
 ```
 Open `http://localhost:8501`.
 
-## 10. Editing during the event (both modes)
+## 9. Editing during the event
 
 Edit on the **host**, not inside the read-only sandbox mount:
 ```bash
@@ -376,84 +348,69 @@ Push only if network access and rules allow it.
 
 ## Troubleshooting
 
-Each entry is tagged for which mode it applies to: **both**, **🧪 test (WSL2/Docker Desktop)**, or **🏭 competition (Dell GB10, native Linux)**.
-
-- **(both) Model missing / Ollama not running** → redo Step 3. Competition: re-copy `load/factoryops-kit/model-backup/ollama`. Never `ollama pull` as a workaround on the Dell.
-- **(both) Docker permission error** → `sudo usermod -aG docker "$USER" && newgrp docker`
-- **(both) NemoClaw onboarding interrupted** → `nemoclaw onboard --resume`
-- **(both) Sandbox/OpenClaw unhealthy** → `nemoclaw factoryops status`, `nemoclaw host probe`. Don't delete the sandbox without a backup. If status shows `Phase: Error`, see **Docker GPU patch failed** below before assuming it's a model/config problem.
-- **🧪 Docker GPU patch failed / `Error: GPU sandbox local inference reachability failed for https://inference.local/v1/models` / sandbox retained in `Provisioning` or `Error` phase and `destroy` refuses to delete it** → confirmed WSL2 + Docker Desktop limitation, not a model, DNS, or GPU-capability problem. Docker Desktop's WSL2 backend can't do NemoClaw's native GPU passthrough, only a `--gpus` compatibility patch, and that patch fails during onboarding on this host type. Everything downstream (the `inference.local` reachability check, the retained/unrecoverable sandbox) is a symptom of the GPU patch never finishing — the model and Ollama itself are fine. Fix: skip GPU passthrough entirely rather than trying to repair the patch:
+- **Model missing / Ollama not running** → redo Step 3. Competition: re-copy `load/factoryops-kit/model-backup/ollama`. Never `ollama pull` as a workaround on the Dell.
+- **Docker permission error** → `sudo usermod -aG docker "$USER" && newgrp docker`
+- **`/sandbox/factoryops` missing (`/sandbox` exists but is otherwise empty)** → NemoClaw never mounts the project folder on its own — there's no wizard prompt for it, and setting `PROJECT_DIR` alone does nothing. The only way to attach your repo is the `--host-mount <host:/sandbox/path>` flag on `nemoclaw onboard` (confirmed via `nemoclaw onboard --help`), which the auto-chained wizard from the installer never passes. Fix in place, no NemoClaw reinstall needed:
   ```bash
-  docker rm -f $(docker ps -aq --filter name=factoryops) 2>/dev/null
-  rm -rf ~/.nemoclaw-portable-host.lock
-  nemoclaw uninstall --yes --destroy-user-data   # the retained-sandbox safety check blocks a plain `destroy`; full uninstall clears it
-  docker system prune -a --volumes -f
-  export NEMOCLAW_SANDBOX_GPU=0                  # or rerun the installer with --no-gpu
-  # then redo Step 4's install command
+  cd /path/to/factoryops               # repo root
+  export NEMOCLAW_SANDBOX_GPU=0        # 🧪 WSL2 only — skip on the Dell
+  PROJECT_DIR="$(pwd -P)"
+  nemoclaw onboard --name factoryops --recreate-sandbox \
+    --host-mount "$PROJECT_DIR:/sandbox/factoryops"
   ```
-  Confirm during onboarding preflight: `✓ Sandbox GPU: disabled by configuration`. You may also see an unrelated-looking `host.openshell.internal has 2 distinct IPs` / `trusted-gateway SSRF exemption disabled` warning in `docker logs <container>` on the same failed attempt — that's a side effect of the same broken GPU patch path, not a separate bug. Not expected on the Dell GB10 (native Linux Docker, no compatibility-patch path) — if it happens there, flag it to a mentor instead of applying the WSL2 workaround.
-- **(both) Repo not visible in sandbox** → confirm `PROJECT_DIR="$(pwd -P)"` is absolute, re-run `nemoclaw onboard`.
-- **(both) NemoClaw state stuck / won't reinstall cleanly** → `nemoclaw uninstall`, then reinstall from Step 4.
-- **(both) `nemoclaw uninstall` fails: "Failed to acquire lock on ~/.nemoclaw-portable-host.lock"** → the lock is stale, usually left by a NemoClaw process that was killed (e.g. `kill -9`) instead of exiting cleanly. Confirm the owning PID is actually dead, then remove the lock and retry:
+  `--recreate-sandbox` deletes and recreates the existing sandbox in
+  place, so you don't need a separate `destroy` first. This re-runs the
+  same wizard prompts as Step 4 (still pick Restricted, not Balanced) —
+  verify after: `nemoclaw factoryops connect`, then `ls -la /sandbox/factoryops` should show your repo files.
+
+  **If it errors instead** with something like *"The failed sandbox and container state is uncertain... Sandbox 'factoryops' was retained after registry publication failed... Do not delete the sandbox by mutable name"* followed by `Error: GPU sandbox local inference reachability failed for https://inference.local/v1/models` — that's a **different** sandbox from a previous WSL2 GPU-patch failure (see Step 4) stuck in a retained state that `--recreate-sandbox`/`destroy` refuses to touch. Don't keep retrying the same way. Do the **Full reset** below instead — `nemoclaw uninstall --yes --destroy-user-data` clears the retained-sandbox safety check that a plain destroy/recreate can't — then reinstall from Step 4 with `NEMOCLAW_SANDBOX_GPU=0` exported and use the `--host-mount` command above.
+- **`nemoclaw uninstall` fails: "Failed to acquire lock"** → stale lock from a killed process:
   ```bash
-  cat ~/.nemoclaw-portable-host.lock/owner        # PID it thinks holds the lock
-  ps -p "$(cat ~/.nemoclaw-portable-host.lock/owner)"   # confirm dead/zombie before removing
+  ps -p "$(cat ~/.nemoclaw-portable-host.lock/owner)"   # confirm dead before removing
   rm -rf ~/.nemoclaw-portable-host.lock
   nemoclaw uninstall
   ```
-  Don't remove the lock if that PID is still a live NemoClaw process.
-- **(both) `nemoclaw uninstall` reports "Uninstall completed with errors" / "Could not remove gateway registration 'nemoclaw': openshell gateway remove failed"** → usually harmless: the gateway was already removed by an earlier step, and `openshell gateway remove` errors on a gateway that no longer exists instead of treating it as success. Confirm there's nothing left before ignoring it:
+- **`nemoclaw uninstall` reports "gateway remove failed"** → usually harmless (already gone). Confirm: `openshell gateway list` should say "No gateways found." Otherwise `openshell gateway remove <name>` and retry.
+- **Full reset** (when in doubt, tear down everything):
   ```bash
-  openshell gateway list        # "No gateways found." confirms it's already gone
+  docker rm -f $(docker ps -aq --filter name=factoryops) 2>/dev/null
+  rm -rf ~/.nemoclaw-portable-host.lock
+  nemoclaw uninstall --yes --destroy-user-data
+  docker system prune -a --volumes -f
+  docker images   # confirm empty
   ```
-  If it does list a gateway, remove it manually with `openshell gateway remove <name>` and re-run `nemoclaw uninstall`.
-- **(both) Full reset: uninstall NemoClaw and remove everything** → when in doubt, tear down all of it in this order rather than picking individual fixes above:
-  ```bash
-  docker rm -f $(docker ps -aq --filter name=factoryops) 2>/dev/null   # stop any sandbox container
-  rm -rf ~/.nemoclaw-portable-host.lock                                # clear a stale lock, if present
-  nemoclaw uninstall --yes --destroy-user-data                         # remove CLI, OpenShell, ~/.nemoclaw state
-  docker system prune -a --volumes -f                                  # purge all cached images/layers
-  docker images                                                        # confirm empty
-  command -v openshell >/dev/null 2>&1 && openshell gateway list || echo 'openshell removed (expected — uninstall removes it too)'
-  ```
-  Then reinstall fresh from Step 4. This is the same recovery path used
-  above for a corrupted image or a stuck registry, just run end-to-end.
-- **(both) Policy tier ended up `Balanced` instead of `Restricted`** → the wizard's Policy Presets screen (Step 5, [8/8]) can auto-advance past your selection before a keypress registers, especially with piped/automated input. Check what's applied and trim it down after the fact rather than re-onboarding:
+  Then reinstall from Step 4.
+- **Policy tier ended up Balanced instead of Restricted** → the [8/8] Policy presets screen can auto-advance past your selection before a keypress registers, especially with piped/automated input. Check what's applied and trim it down rather than re-onboarding:
   ```bash
   nemoclaw factoryops policy list
   for p in brew huggingface npm pypi openclaw-pricing; do
     nemoclaw factoryops policy remove "$p" --yes
   done
   ```
-  Keep `local-inference` — it's what lets the sandbox reach your local Ollama. Removing the rest doesn't affect app development (Step 10: you build/edit on the host, not inside the sandbox).
-- **🧪 Sandbox creation disconnects (laptop test on WSL2 only)** → check for OOM kills with `dmesg -T | egrep -i 'oom|killed process'`. WSL2 defaults to ~50% host RAM / no swap, which isn't enough for Docker + the sandbox + a loaded model at once. On Windows, create/edit `C:\Users\<you>\.wslconfig`:
+  Keep `local-inference` (needed to reach Ollama). This only restricts the OpenClaw agent *inside* the sandbox — you still edit/`pip install` on the host (Step 9).
+- **🧪 WSL2 sandbox creation disconnects** → check OOM: `dmesg -T | egrep -i 'oom|killed process'`. Raise WSL2 limits in `C:\Users\<you>\.wslconfig`:
   ```ini
   [wsl2]
   memory=12GB
   processors=6
   swap=8GB
   ```
-  Then from PowerShell: `wsl --shutdown`, and reopen Ubuntu. If Docker Desktop's WSL2 backend is in use, also raise its memory/CPU limits under Settings → Resources.
-- **(both, but the Windows-VM-disk fix below is 🧪 WSL2/Docker Desktop only) Sandbox never reaches Ready / container crash-loops (e.g. `libelf.so.1: file too short`) / `destroy` refuses with "could not select exactly one recovery record"** → a corrupted image, not a transient glitch; retrying `destroy` won't clear it since the crash-looping container never reaches a confirmable "absent" state. Note: `docker images` showing the same ID/age after reinstalling is *normal* (that timestamp is the image's build time, not your pull time) — it does **not** by itself mean Docker reused a bad local cache. Rule out a local cache issue first with a full purge:
+  Then `wsl --shutdown` from PowerShell and reopen. Also raise Docker Desktop's resource limits if used.
+- **🧪 WSL2 sandbox never reaches Ready / crash-loops (e.g. `libelf.so.1: file too short`) / `destroy` refuses to delete** → usually a corrupted image, not the GPU-patch issue above. Purge first:
   ```bash
-  docker rm -f $(docker ps -aq --filter name=factoryops)   # stop the crash-looping container (frees the image)
-  docker system prune -a --volumes -f                       # purge all cached images/layers, not just this one
-  docker images                                              # confirm it's empty
+  docker rm -f $(docker ps -aq --filter name=factoryops)
+  docker system prune -a --volumes -f
   nemoclaw uninstall
   ```
-  If the truncation still recurs after that (check `dmesg -T | egrep -i 'corrupt|i/o error'` for signs of an unclean WSL2/Docker Desktop VM shutdown), the corruption is in Docker Desktop's own backing VM disk, not Docker's image cache. Fix from **Windows**, not inside the distro:
-  1. PowerShell: `wsl --shutdown`, then reopen Docker Desktop.
-  2. If it recurs again, Docker Desktop → Troubleshoot → Clean/Purge data (or "Reset to factory defaults") to rebuild the VM disk — a plain restart alone doesn't repair existing corruption.
-  Then reinstall from Step 4 and verify the freshly pulled image with
-  `docker run --rm <image> ip netns list` before re-onboarding.
+  Still recurring (check `dmesg -T | egrep -i 'corrupt|i/o error'`)? The corruption is in Docker Desktop's backing VM disk — fix from Windows: `wsl --shutdown`, reopen Docker Desktop; if it recurs again, Docker Desktop → Troubleshoot → Clean/Purge data. Then reinstall from Step 4.
+- **🏭 Any of the above on the Dell GB10** → these are known WSL2/Docker Desktop quirks and not expected on native Linux. Treat as a real anomaly and flag to a mentor rather than applying the WSL2 workaround.
 
 ## Final checklist
 
 **🧪 Test (laptop)**
 ```text
-[ ] ollama pull qwen3:4b works, model answers the test prompt
 [ ] factoryops-kit pasted into load/ on the laptop and its sha256 checksum matches
-[ ] ollama serve against load/factoryops-kit/model-backup/ollama/4b also answers the test prompt (kit not corrupt)
+[ ] ollama serve against load/factoryops-kit/model-backup/ollama/4b answers the test prompt (kit not corrupt)
 [ ] NemoClaw sandbox onboarded and healthy
 [ ] OpenClaw answers the M4-E17 scenario, citing local files + LOTO step
 [ ] Streamlit UI runs at localhost:8501
@@ -471,44 +428,10 @@ Each entry is tagged for which mode it applies to: **both**, **🧪 test (WSL2/D
 [ ] Code changes committed locally
 ```
 
-## Cheat sheet
-
-**🧪 Test:**
-```bash
-git clone https://github.com/MFarhanFadhilah/factoryops.git && cd factoryops
-curl -fsSL https://ollama.com/install.sh | sh
-ollama serve &
-ollama pull qwen3:4b
-curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash && source ~/.bashrc
-PROJECT_DIR="$(pwd -P)"; nemoclaw onboard
-nemoclaw factoryops status
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-streamlit run app/main.py --server.address 0.0.0.0 --server.port 8501
-```
-
-**🏭 Competition:**
-```bash
-git clone https://github.com/MFarhanFadhilah/factoryops.git && cd factoryops
-# paste factoryops-kit into load/
-curl -fsSL https://ollama.com/install.sh | sh
-sudo systemctl stop ollama 2>/dev/null || true
-export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/4b"
-ollama serve &
-ollama run qwen3:4b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
-curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash && source ~/.bashrc
-PROJECT_DIR="$(pwd -P)"; nemoclaw onboard
-nemoclaw factoryops status
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-streamlit run app/main.py --server.address 0.0.0.0 --server.port 8501
-# cut network before the live demo
-```
-
 ---
 
-**One-sentence summary:** clone FactoryOps, test on your laptop with
-`ollama pull qwen3:4b`, then for the event paste `factoryops-kit` into
-`load/` and load the model from there instead — everything else
-(NemoClaw onboard, sandbox verify, OpenClaw test, Streamlit UI) is the
-same in both modes, with network cut only for the live demo.
+**One-sentence summary:** clone FactoryOps, paste `factoryops-kit` into
+`load/` and load qwen3:4b from it on your laptop to test, then do the
+same on the Dell for the event — everything else (NemoClaw onboard,
+sandbox verify, OpenClaw test, Streamlit UI) is identical in both
+modes, with network cut only for the live demo.
