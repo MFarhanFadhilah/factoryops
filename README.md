@@ -7,14 +7,15 @@ calls, no internet, ever, during the live demo.**
 ## Stack (fixed by competition rules — do not substitute)
 
 ```text
-GitHub → Dell GB10 host → local Ollama (qwen3:4b) → NemoClaw → OpenShell sandbox → OpenClaw agent
+GitHub → Dell GB10 host → local Ollama (chat + embedding) → NemoClaw → OpenShell sandbox → OpenClaw agent
 ```
 
 | Component | Role |
 |---|---|
 | GitHub | Stores this repo: app code, data, manuals |
-| Ollama | Runs the local LLM |
-| qwen3:4b | Answers FactoryOps questions |
+| Ollama | Runs the local chat + embedding models |
+| `qwen3:4b` (🧪 test) / `qwen3:8b` (🏭 competition) | Answers FactoryOps questions |
+| `nomic-embed-text` (🧪 test) / `mxbai-embed-large` (🏭 competition) | Embeds manuals/repair history for RAG retrieval |
 | NemoClaw | Installer/manager for the agent + sandbox stack |
 | OpenShell | Sandboxes the agent's file/network access |
 | OpenClaw | The agent that runs inside the sandbox |
@@ -94,28 +95,56 @@ Install if missing:
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
+Each environment serves **two** models — a chat model and an embedding
+model (RAG retrieval over the manuals/repair history) — out of one
+`OLLAMA_MODELS` directory. The kit ships each model in its own dir, so
+merge the embedding model's `blobs/` + `manifests/` into the chat
+model's dir once, per environment:
+
+| | 🧪 Test (laptop) | 🏭 Competition (Dell GB10) |
+|---|---|---|
+| Chat model | `qwen3:4b` | `qwen3:8b` |
+| Embedding model | `nomic-embed-text` | `mxbai-embed-large` |
+| Merged into | `.../ollama/4b/` | `.../ollama/8b/` |
+
 **🧪 Test (laptop) — load from the kit (same as competition, no `ollama pull`):**
 ```bash
 sha256sum load/factoryops-kit/model-backup/llamafile/Qwen3.5-0.8B-Q8_0.llamafile
 # expect: ec7c3ab7903accb1b4d890cfd1fc670fabc642dcb4896735bd69d46b2629408d
 sudo systemctl stop ollama 2>/dev/null || true
+
+# one-time: merge the embedding model into the chat model's dir
+cp -n load/factoryops-kit/model-backup/ollama/embed-nomic-embed-text/blobs/* \
+      load/factoryops-kit/model-backup/ollama/4b/blobs/
+cp -rn load/factoryops-kit/model-backup/ollama/embed-nomic-embed-text/manifests/registry.ollama.ai/library/nomic-embed-text \
+       load/factoryops-kit/model-backup/ollama/4b/manifests/registry.ollama.ai/library/
+
 export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/4b"
 ollama serve &
-ollama list
+ollama list                                                        # expect qwen3:4b + nomic-embed-text
 ollama run qwen3:4b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
+curl http://127.0.0.1:11434/api/embed -d '{"model":"nomic-embed-text","input":"test"}'
 curl http://127.0.0.1:11434/api/tags
 ```
-If `ollama list` errors or the checksum mismatches, the `factoryops-kit`
-copy is corrupt or incomplete — re-copy it from the source before the
-competition.
+If `ollama list` errors, either model is missing, or the checksum
+mismatches, the `factoryops-kit` copy is corrupt or incomplete —
+re-copy it from the source before the competition.
 
 **🏭 Competition (Dell GB10) — load from the kit, never pull:**
 ```bash
 sudo systemctl stop ollama 2>/dev/null || true
-export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/4b"
+
+# one-time: merge the embedding model into the chat model's dir
+cp -n load/factoryops-kit/model-backup/ollama/embed-mxbai-embed-large/blobs/* \
+      load/factoryops-kit/model-backup/ollama/8b/blobs/
+cp -rn load/factoryops-kit/model-backup/ollama/embed-mxbai-embed-large/manifests/registry.ollama.ai/library/mxbai-embed-large \
+       load/factoryops-kit/model-backup/ollama/8b/manifests/registry.ollama.ai/library/
+
+export OLLAMA_MODELS="$(pwd)/load/factoryops-kit/model-backup/ollama/8b"
 ollama serve &
-ollama list
-ollama run qwen3:4b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
+ollama list                                                      # expect qwen3:8b + mxbai-embed-large
+ollama run qwen3:8b "Reply exactly: FACTORYOPS LOCAL MODEL READY"
+curl http://127.0.0.1:11434/api/embed -d '{"model":"mxbai-embed-large","input":"test"}'
 curl http://127.0.0.1:11434/api/tags
 ```
 > ⚠️ **Caution:** `ollama serve` is a background server, not a one-shot
@@ -126,9 +155,87 @@ curl http://127.0.0.1:11434/api/tags
 > `pkill ollama`), every downstream step will fail with a connection
 > error until you run `ollama serve &` again.
 
-**8B backup:** stop the server, `export OLLAMA_MODELS=".../ollama/8b"`,
-`ollama serve` again, `ollama run qwen3:8b` (copy `blobs/` + `manifests/`
-into `.../ollama/8b/` first — kit ships the 4B only).
+**`qwen3:1.7b` (faster, less reliable):** the kit also ships `qwen3:1.7b`
+in `.../ollama/1.7b/` — noticeably faster on CPU-only laptops, but see
+the hallucination finding under **Troubleshooting** below: it fabricated
+data and ignored grounding instructions on a normal/no-anomaly case.
+Use it only for quick iteration on things like prompt wiring or the
+Streamlit UI, never to judge whether an answer is actually correct.
+
+### Quick model switch
+
+Re-running the stop/merge/serve steps by hand every time you want to
+try a different chat model gets old fast. Save this once, from the
+repo root:
+
+```bash
+cat > switch-model.sh <<'SCRIPT'
+#!/usr/bin/env bash
+# Switch which chat+embedding pair is loaded from factoryops-kit.
+# Usage: ./switch-model.sh [status | 1.7b | 4b | 8b]
+#   status (or no argument) just reports what's currently loaded —
+#   run this first if you're not sure what's active right now.
+set -euo pipefail
+
+MODEL="${1:-status}"
+
+if [ "$MODEL" = "status" ]; then
+  echo "== currently loaded (active ollama server) =="
+  ollama list 2>/dev/null || echo "No ollama server reachable at \$OLLAMA_HOST (default 127.0.0.1:11434) — nothing is running"
+  exit 0
+fi
+
+KIT="$(pwd)/load/factoryops-kit/model-backup/ollama"
+
+case "$MODEL" in
+  1.7b|4b) CHAT="qwen3:$MODEL"; EMBED="nomic-embed-text";   EMBED_DIR="embed-nomic-embed-text" ;;
+  8b)      CHAT="qwen3:8b";     EMBED="mxbai-embed-large";  EMBED_DIR="embed-mxbai-embed-large" ;;
+  *) echo "Unknown model '$MODEL' — expected status, 1.7b, 4b, or 8b" >&2; exit 1 ;;
+esac
+
+TARGET="$KIT/$MODEL"
+[ -d "$TARGET" ] || { echo "Missing $TARGET — is factoryops-kit pasted into load/?" >&2; exit 1; }
+
+echo "== stopping any running ollama server =="
+sudo systemctl stop ollama 2>/dev/null || true
+pkill -f "ollama serve" 2>/dev/null || true
+sleep 1
+
+echo "== merging $EMBED into $MODEL (idempotent — skips files already there) =="
+cp -n "$KIT/$EMBED_DIR/blobs/"* "$TARGET/blobs/"
+mkdir -p "$TARGET/manifests/registry.ollama.ai/library"
+cp -rn "$KIT/$EMBED_DIR/manifests/registry.ollama.ai/library/$EMBED" \
+       "$TARGET/manifests/registry.ollama.ai/library/"
+
+echo "== starting ollama serve against $TARGET =="
+export OLLAMA_MODELS="$TARGET"
+ollama serve > /tmp/ollama-switch.log 2>&1 &
+sleep 2
+
+echo "== verifying =="
+ollama list
+ollama run "$CHAT" "Reply exactly: FACTORYOPS LOCAL MODEL READY"
+curl -s http://127.0.0.1:11434/api/embed -d "{\"model\":\"$EMBED\",\"input\":\"test\"}" | head -c 120
+echo
+echo "Active pair: $CHAT + $EMBED  (OLLAMA_MODELS=$TARGET)"
+SCRIPT
+chmod +x switch-model.sh
+```
+
+Check what's active before switching — don't assume:
+```bash
+./switch-model.sh status   # or just: ./switch-model.sh
+```
+
+Then switching is one line:
+```bash
+./switch-model.sh 4b     # test default
+./switch-model.sh 1.7b   # faster, but known to hallucinate — quick iteration only, don't trust output
+./switch-model.sh 8b     # competition pairing
+```
+`ollama serve` still runs as a plain background process here (not the
+systemd service) — the same caution above applies: keep the shell open,
+and re-run the script (or `ollama serve &`) if it ever dies.
 
 **Fallback if Ollama can't run at all** (llamafile, portable, x86_64/ARM64):
 ```bash
@@ -182,7 +289,7 @@ Answering **n** drops straight into onboarding, which then runs
 ```text
 Select agent runtime      → 1) OpenClaw
 Select inference provider → 8) Local Ollama
-Select model               → qwen3:4b
+Select model               → qwen3:4b (🧪 test) / qwen3:8b (🏭 competition)
 Sandbox name                → factoryops
 Apply configuration          → 1)
 Web search                    → 1) No web search
@@ -231,7 +338,7 @@ Expected settings:
 Agent runtime:          OpenClaw
 Sandbox name:           factoryops
 Inference provider:     Local Ollama
-Model:                  qwen3:4b
+Model:                  qwen3:4b (🧪 test) / qwen3:8b (🏭 competition)
 Project host folder:    $PROJECT_DIR
 Sandbox project folder: /sandbox/factoryops
 Project mount mode:     Read-only
@@ -349,6 +456,10 @@ Push only if network access and rules allow it.
 ## Troubleshooting
 
 - **Model missing / Ollama not running** → redo Step 3. Competition: re-copy `load/factoryops-kit/model-backup/ollama`. Never `ollama pull` as a workaround on the Dell.
+- **Small model hallucinates facts not in the local files, especially on a "nothing abnormal" case** → observed with `qwen3:1.7b` during early testing (this is why the test default is `qwen3:4b`, not `1.7b`): asked to investigate a genuinely normal telemetry window, it invented a fake anomaly with units/thresholds that don't exist anywhere in the project (`"1200 psi vs. 1150-1250 psi"` — nothing in this project is measured in psi) and recommended stopping production. It ignored "use only local files" entirely and answered from generic training knowledge instead of reading the CSV. This is a real reliability gap, not a one-off:
+  - Don't trust a model's prose claim by itself — cross-check against the deterministic tool output (e.g. `evaluate_anomaly_rules`/`calculate_production_risk` in `secret-folder/tools/`) before accepting a demo answer as correct.
+  - Re-test every scenario (especially the normal/no-anomaly case) against the competition's actual `qwen3:8b` + `mxbai-embed-large` pairing before relying on `qwen3:4b` + `nomic-embed-text` results for the live demo. Smaller models are more prone to ignoring grounding instructions and inventing plausible-sounding but fabricated evidence — if you fall back to `1.7b` for quick iteration, re-verify anything it says before trusting it.
+  - If it recurs on a larger model too, that's a prompt/skill-file problem (the "never invent facts absent from local files" rule needs to be stated more forcefully or earlier in context), not just a model-size problem.
 - **Docker permission error** → `sudo usermod -aG docker "$USER" && newgrp docker`
 - **`/sandbox/factoryops` missing (`/sandbox` exists but is otherwise empty)** → NemoClaw never mounts the project folder on its own — there's no wizard prompt for it, and setting `PROJECT_DIR` alone does nothing. The only way to attach your repo is the `--host-mount <host:/sandbox/path>` flag on `nemoclaw onboard` (confirmed via `nemoclaw onboard --help`), which the auto-chained wizard from the installer never passes. Fix in place, no NemoClaw reinstall needed:
   ```bash
@@ -410,7 +521,7 @@ Push only if network access and rules allow it.
 **🧪 Test (laptop)**
 ```text
 [ ] factoryops-kit pasted into load/ on the laptop and its sha256 checksum matches
-[ ] ollama serve against load/factoryops-kit/model-backup/ollama/4b answers the test prompt (kit not corrupt)
+[ ] ollama serve against load/factoryops-kit/model-backup/ollama/4b answers the test prompt, ollama list shows qwen3:4b + nomic-embed-text (kit not corrupt)
 [ ] NemoClaw sandbox onboarded and healthy
 [ ] OpenClaw answers the M4-E17 scenario, citing local files + LOTO step
 [ ] Streamlit UI runs at localhost:8501
@@ -419,7 +530,7 @@ Push only if network access and rules allow it.
 **🏭 Competition (Dell GB10)**
 ```text
 [ ] load/factoryops-kit/ pasted in
-[ ] ollama serve runs against load/factoryops-kit/model-backup/ollama, ollama list shows qwen3:4b
+[ ] ollama serve runs against load/factoryops-kit/model-backup/ollama/8b, ollama list shows qwen3:8b + mxbai-embed-large
 [ ] NemoClaw sandbox onboarded and healthy, /sandbox/factoryops mounted read-only
 [ ] OpenClaw answers the M4-E17 scenario, citing local files + LOTO step
 [ ] Streamlit UI runs at localhost:8501
@@ -431,7 +542,8 @@ Push only if network access and rules allow it.
 ---
 
 **One-sentence summary:** clone FactoryOps, paste `factoryops-kit` into
-`load/` and load qwen3:4b from it on your laptop to test, then do the
-same on the Dell for the event — everything else (NemoClaw onboard,
+`load/` and load `qwen3:4b` + `nomic-embed-text` from it on your
+laptop to test, then do the same with `qwen3:8b` + `mxbai-embed-large`
+on the Dell for the event — everything else (NemoClaw onboard,
 sandbox verify, OpenClaw test, Streamlit UI) is identical in both
 modes, with network cut only for the live demo.
